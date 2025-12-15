@@ -27,6 +27,7 @@
 		DAE0EA282EEEF6A200A43D8A /* BoutonProut.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BoutonProut.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAE0EA352EEEF6A500A43D8A /* BoutonProutTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BoutonProutTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAE0EA3F2EEEF6A500A43D8A /* BoutonProutUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BoutonProutUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		DAE0EA592EEEFB7F00A43D8A /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -43,6 +44,11 @@
 		DAE0EA422EEEF6A500A43D8A /* BoutonProutUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = BoutonProutUITests;
+			sourceTree = "<group>";
+		};
+		DAE0EA622EEF055F00A43D8A /* FartSound */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = FartSound;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -75,9 +81,11 @@
 		DAE0EA1F2EEEF6A200A43D8A = {
 			isa = PBXGroup;
 			children = (
+				DAE0EA622EEF055F00A43D8A /* FartSound */,
 				DAE0EA2A2EEEF6A200A43D8A /* BoutonProut */,
 				DAE0EA382EEEF6A500A43D8A /* BoutonProutTests */,
 				DAE0EA422EEEF6A500A43D8A /* BoutonProutUITests */,
+				DAE0EA562EEEF91600A43D8A /* Frameworks */,
 				DAE0EA292EEEF6A200A43D8A /* Products */,
 			);
 			sourceTree = "<group>";
@@ -90,6 +98,14 @@
 				DAE0EA3F2EEEF6A500A43D8A /* BoutonProutUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		DAE0EA562EEEF91600A43D8A /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				DAE0EA592EEEFB7F00A43D8A /* AVFoundation.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -109,6 +125,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				DAE0EA2A2EEEF6A200A43D8A /* BoutonProut */,
+				DAE0EA622EEF055F00A43D8A /* FartSound */,
 			);
 			name = BoutonProut;
 			packageProductDependencies = (
@@ -195,6 +212,8 @@
 			);
 			mainGroup = DAE0EA1F2EEEF6A200A43D8A;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = DAE0EA292EEEF6A200A43D8A /* Products */;
 			projectDirPath = "";
@@ -405,6 +424,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -437,6 +457,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
