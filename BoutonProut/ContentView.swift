@@ -1,4 +1,6 @@
 import SwiftUI
+import UIKit // Nécessaire pour UIApplication.shared.sendAction
+// Assurez-vous d'avoir bien importé UINotificationFeedbackGenerator dans ShopView ou ailleurs si nécessaire.
 
 // NOTE: Les classes GameData, AudioEngine, et GameManager doivent exister.
 
@@ -6,18 +8,18 @@ import SwiftUI
 struct FallingPoop: Identifiable {
     let id = UUID()
     let emoji: String = "💩"
-    let x: CGFloat          // Position horizontale de départ
-    var y: CGFloat = 0      // Position verticale (défilement)
-    let size: CGFloat       // Taille de la merde
-    let rotation: Angle     // Angle de rotation
-    let duration: Double    // Vitesse de défilement
+    let x: CGFloat         // Position horizontale de départ
+    var y: CGFloat = 0     // Position verticale (défilement)
+    let size: CGFloat      // Taille de la merde
+    let rotation: Angle    // Angle de rotation
+    let duration: Double   // Vitesse de défilement
 }
 
 struct ContentView: View {
     
     // --- SOURCES DE VÉRITÉ ---
     @StateObject var data = GameData()
-    @StateObject var audio = AudioEngine()
+    @StateObject var audio = AudioEngine() // Supposons que AudioEngine existe
     @StateObject var gameManager = GameManager() // Gestionnaire Firebase
     
     // --- ÉTATS LOCAUX (Vues & Animation) ---
@@ -30,7 +32,7 @@ struct ContentView: View {
     @State private var showingInventory = false // Page mes Objets
     
     // Animations visuelles
-    @State private var scale: CGFloat = 1.0      // Écrasement (Clic Manuel)
+    @State private var scale: CGFloat = 1.0     // Écrasement (Clic Manuel)
     @State private var autoScale: CGFloat = 1.0  // Petit Rebond (Auto-Pet)
     
     // Logique mathématique (Accumulateur pour les pets à virgule)
@@ -38,12 +40,12 @@ struct ContentView: View {
     
     // NOUVEAU : Tableau pour stocker les particules animées
     @State private var fallingPoops: [FallingPoop] = []
-            
+                
     // NOUVEAU : Timer pour l'animation de chute
     @State private var fallingPoopTimer: Timer?
     
     // Ajout de l'état pour la vue de débogage
-    @State private var showingDebug = false // A ajouter
+    @State private var showingDebug = false // ÉTAT CORRECT
     
     // Couleur de fond (Bleu nuit apaisant)
     let customBackground = Color(red: 0.1, green: 0.15, blue: 0.2)
@@ -71,7 +73,7 @@ struct ContentView: View {
                         .font(.system(size: 60, weight: .heavy, design: .rounded))
                         .foregroundColor(.yellow)
                         .animation(.spring(), value: data.totalFartCount)
-                                    
+                                
                     Text("Pets Par Seconde: \(String(format: "%.2f", data.petsPerSecond))")
                         .font(.caption)
                         .fontWeight(.bold)
@@ -101,8 +103,8 @@ struct ContentView: View {
                     .shadow(color: .yellow.opacity(0.8), radius: 30)
                     
                     .scaleEffect(data.calculatedPoopScale)
-                    .scaleEffect(scale)      // Écrasement manuel
-                    .scaleEffect(autoScale)  // Rebond auto
+                    .scaleEffect(scale)     // Écrasement manuel
+                    .scaleEffect(autoScale) // Rebond auto
                     
                     .onTapGesture {
                         self.clickAction()
@@ -159,25 +161,28 @@ struct ContentView: View {
         
         // --- LOGIQUE INVISIBLE (LIFECYCLE) ---
         
+        // CORRECTION: Démarrage de l'observateur PvP ici
         .onAppear {
             self.startAutoFartTimer()
             self.startFallingPoopTimer() // Démarrer le timer d'animation
+            
+            // CORRECTION APPLIQUÉE ICI : Utiliser 'self.' pour lever l'ambiguïté.
+            self.gameManager.startObservingIncomingAttacks(data: data) // Démarrer l'écoute PvP
         }
         
         .onChange(of: data.petsPerSecond) { self.startAutoFartTimer() }
 
-        // NOUVEAU: Ajout de la logique de réinitialisation ici
+        // NOUVEAU: Logique de réinitialisation pour le bouton DEV
         .onChange(of: data.totalFartCount) {
-            // Si le score est ramené à zéro ET l'inventaire est vide (après un softReset)
             if data.totalFartCount == 0 && data.itemLevels.isEmpty {
-                self.startAutoFartTimer() // Force le redémarrage (ou l'arrêt) du timer PPS
+                self.startAutoFartTimer()
             }
         }
         
-        // Ajout des accolades pour le onDisappear et utilise le bon timer
         .onDisappear {
             self.timer?.invalidate(); self.timer = nil
-            self.fallingPoopTimer?.invalidate(); self.fallingPoopTimer = nil // Arrête le timer
+            self.fallingPoopTimer?.invalidate(); self.fallingPoopTimer = nil
+            gameManager.stopObservingLeaderboard() // Assurez-vous que l'observation s'arrête
         }
         
         // OUVERTURE DES FENÊTRES (SHEETS)
@@ -190,22 +195,23 @@ struct ContentView: View {
                 .interactiveDismissDisabled(true)
         }
         .sheet(isPresented: $showingLeaderboard) {
-            LeaderboardView(gameManager: gameManager)
+            LeaderboardView(gameManager: gameManager, data: data) // Passez 'data' pour la logique d'attaque
                 .interactiveDismissDisabled(true)
         }
         .sheet(isPresented: $showingInventory) {
             InventoryView(data: data)
                 .interactiveDismissDisabled(true)
         }
+        
+        // AJOUT du sheet pour la vue de débogage
         .sheet(isPresented: $showingDebug) {
-            // NOTE IMPORTANTE : Il faut passer la data pour que la réinitialisation fonctionne
             DebugView(data: data)
                 .interactiveDismissDisabled(true)
         }
-        // FIN DE body
     }
-    // --- FONCTIONS ET LOGIQUE (PLACÉES CORRECTEMENT DANS LA STRUCTURE) ---
-
+    
+    // --- FONCTIONS ET LOGIQUE (INCHANGÉES) ---
+    
     func clickAction() {
         let producedPets = data.clickPower
         
@@ -270,32 +276,23 @@ struct ContentView: View {
     }
     
     func triggerPoopRainOnAutoFart(producedAmount: Int) {
-        // CORRECTION : Le nombre de caca est proportionnel aux pets produits lors du tick.
-            
-        // Nous allons limiter la quantité maximale pour éviter de submerger l'écran ou le CPU.
-        // Facteur de conversion : 1 caca pour 50 pets produits
         let conversionFactor = 50
-            
-        // Nombre de caca à générer (au moins 1 si la production est > 0)
-        let maxPoopsToGenerate = 15 // Limitation stricte pour les performances
-            
+        let maxPoopsToGenerate = 15
+        
         var numPoops = producedAmount / conversionFactor
-            
-        // S'assurer qu'au moins 1 caca tombe si la production est positive mais faible
+        
         if producedAmount > 0 && numPoops == 0 {
-                numPoops = 1
+            numPoops = 1
         }
-            
-        // Appliquer la limitation maximale
+        
         numPoops = min(numPoops, maxPoopsToGenerate)
-            
+        
         if numPoops > 0 {
             self.generatePoopRain(count: numPoops)
         }
     }
     
     
-    // Crée un lot de particules qui vont tomber à l'écran.
     func generatePoopRain(count: Int) {
         let screenWidth = UIScreen.main.bounds.width
         let screenHeight = UIScreen.main.bounds.height
@@ -362,12 +359,5 @@ struct NavButton: View {
                 .contentShape(Rectangle())
                 .foregroundColor(color)
         }
-    }
-}
-
-// Prévisualisation pour Xcode
-struct ContentView_Previews: PreviewProvider {
-    static var previews: some View {
-        ContentView()
     }
 }

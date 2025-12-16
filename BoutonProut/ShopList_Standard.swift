@@ -44,7 +44,7 @@ let standardShopItems: [ShopItem] = [
     ShopItem(name: "Double Clic", description: "Double le PPC de tous les Outils T1.", baseCost: 10000, currency: .pets, category: .amelioration, emoji: "🖱️", requiredItem: "Slip Troué", requiredItemCount: 10, effectID: "upgrade_ppc_t1_x2"),
     
     // PERTURBATEUR (PQ d'Or)
-    ShopItem(name: "Spray Désodorisant", description: "Réduit le PPS du Cible de 50% pendant 5 min.", baseCost: 10, currency: .pets, category: .perturbateur, emoji: "👃", effectID: "attack_dps_reduction_50", durationMinutes: 5, isConsumable: true),
+    ShopItem(name: "Spray Désodorisant", description: "Réduit le PPS du Cible de 50% pendant 5 min.", baseCost: 10, currency: .pets, category: .perturbateur, emoji: "👃", effectID: "attack_dps_reduction_50", durationMinutes: 5, isConsumable: false),
 
     // JALON NARRATIF
     ShopItem(name: "Achète un Appart", description: "Premier investissement. Débloque le T4.", baseCost: 250_000, currency: .pets, category: .jalonNarratif, emoji: "🏢", requiredItem: "Passe le Bac", requiredItemCount: 1),
@@ -69,7 +69,7 @@ let standardShopItems: [ShopItem] = [
     ShopItem(name: "Bouchon de Fesses", description: "Protège contre le Spray Désodorisant (PvP).", baseCost: 25_000, currency: .pets, category: .defense, emoji: "🕳️", requiredItem: "Soupe aux Choux", requiredItemCount: 10, effectID: "defense_anti_spray"),
 
     // PERTURBATEUR
-    ShopItem(name: "Pet Foireux", description: "Retire 10% des Tiers 1 du Cible aléatoirement.", baseCost: 25, currency: .pets, category: .perturbateur, emoji: "💨", effectID: "attack_loss_t1_10", isConsumable: true),
+    ShopItem(name: "Pet Foireux", description: "Retire 10% des Tiers 1 du Cible aléatoirement.", baseCost: 25, currency: .pets, category: .perturbateur, emoji: "💨", effectID: "attack_loss_t1_10", isConsumable: false),
 
     // JALON NARRATIF
     ShopItem(name: "Achète une Bague", description: "Un pas vers l'engagement. Débloque le T6.", baseCost: 1_500_000, currency: .pets, category: .jalonNarratif, emoji: "💍", requiredItem: "Devient Chef", requiredItemCount: 1),

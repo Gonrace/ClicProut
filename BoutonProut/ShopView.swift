@@ -236,24 +236,27 @@ struct ShopView: View {
 
         // Détermine si l'achat est possible (utilise la logique de GameData)
         var canAffordAndAvailable: Bool {
+                    
+            // CORRECTION DU BUG 1: Appliquer la même logique de vérification d'unicité que dans GameData
+            let isUniqueCategory = (item.category == .amelioration || item.category == .defense || item.category == .jalonNarratif || item.category == .perturbateur || item.category == .skin || item.category == .sound || item.category == .background || item.category == .music)
+
             // Empêche l'achat si c'est unique et déjà possédé ET NON CONSOMMABLE
-            if item.category != .production && item.category != .outil && !item.isConsumable && currentLevel > 0 {
+            if !item.isConsumable && isUniqueCategory && currentLevel > 0 {
                 return false
             }
-            
-            // Vérification du prérequis
+                
+            // Vérification du prérequis (inchangée, elle est OK)
             if let req = item.requiredItem, let reqCount = item.requiredItemCount {
                 if data.itemLevels[req, default: 0] < reqCount { return false }
             }
-            
-            // Vérification de l'argent
+                    
+            // Vérification de l'argent (inchangée, elle est OK)
             if item.currency == .pets {
                 return data.totalFartCount >= displayCost
             } else { // Golden Paper
                 return data.goldenToiletPaper >= displayCost
             }
         }
-        
         func buyItem() {
             let success = data.attemptPurchase(item: item)
             
