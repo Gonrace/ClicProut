@@ -2,10 +2,11 @@ import SwiftUI
 import UIKit
 
 // NOTE: Les classes GameData et GameManager doivent exister.
+// NOTE: Le style AppStyle et la structure CustomTitleBar doivent être définis.
 
 // --- STRUCTURES D'AIDE ---
 
-// Ligne d'affichage pour les statistiques (utilise AppStyle)
+// Ligne d'affichage pour les statistiques
 struct StatRow: View {
     let title: String
     let value: String
@@ -35,18 +36,21 @@ struct StatsView: View {
     @State private var showingNameEditAlert = false
     @State private var tempUsername: String = ""
     
+    // État pour la vue de débogage
+    @State private var showingDebug = false
+    
     var body: some View {
         ZStack {
             AppStyle.secondaryBackground.edgesIgnoringSafeArea(.all)
 
             VStack(spacing: 0) {
-                // Barre de Titre (Style unifié)
+                // 1. BARRE DE TITRE (Style unifié)
                 CustomTitleBar(title: "Statistiques 📊", onDismiss: { dismiss() })
                 
                 ScrollView {
                     VStack(alignment: .leading, spacing: AppStyle.defaultPadding) {
                         
-                        // Section 1: Nom d'utilisateur (avec bouton Modifier)
+                        // Section 1: Profil
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Profil").font(AppStyle.subTitleFont).foregroundColor(.white)
                             
@@ -59,7 +63,7 @@ struct StatsView: View {
                                     .fontWeight(.bold)
                                     .foregroundColor(AppStyle.accentColor)
                                 
-                                // BOUTON MODIFIER (Icone plus compacte)
+                                // BOUTON MODIFIER
                                 Button {
                                     tempUsername = gameManager.username
                                     showingNameEditAlert = true
@@ -89,11 +93,27 @@ struct StatsView: View {
                             .cornerRadius(10)
                         }
                         
+                        // --- AJOUT : SECTION OUTILS DE DÉBOGAGE (Bouton d'accès en bas) ---
+                        
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Outils Avancés (DEV)").font(AppStyle.subTitleFont).foregroundColor(.red)
+                            
+                            Button("Accéder aux Outils de Test et Réinitialisation") {
+                                showingDebug = true
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.red.opacity(0.3))
+                            .foregroundColor(.red)
+                            .cornerRadius(10)
+                        }
+                        
                     }
                     .padding(AppStyle.defaultPadding)
                 }
             }
         }
+        
         // POP-UP d'édition de nom
         .alert("Modifier votre Nom", isPresented: $showingNameEditAlert) {
             TextField("Nouveau nom", text: $tempUsername)
@@ -101,12 +121,17 @@ struct StatsView: View {
             Button("Valider") {
                 let trimmedName = tempUsername.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !trimmedName.isEmpty else { return }
-                gameManager.saveNewUsername(trimmedName, currentScore: data.totalFartCount)
+                gameManager.saveNewUsername(trimmedName, lifetimeScore: data.totalFartCount)
                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
             }
             Button("Annuler", role: .cancel) { }
         } message: {
             Text("Entrez le nouveau nom que vous souhaitez afficher dans le classement.")
+        }
+        
+        // AFFICHAGE DE LA VUE DE DÉBOGAGE
+        .sheet(isPresented: $showingDebug) {
+            DebugView(data: data)
         }
     }
 }

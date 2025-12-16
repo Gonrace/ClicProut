@@ -14,7 +14,6 @@ struct LeaderboardEntry: Identifiable, Decodable {
 
 class GameManager: ObservableObject {
     
-    // ID anonyme de l'utilisateur (persistant via UserDefaults)
     var userID: String {
         if let id = UserDefaults.standard.string(forKey: "userID") {
             return id
@@ -24,71 +23,71 @@ class GameManager: ObservableObject {
         return newID
     }
     
-    // Nom d'utilisateur (modifiable et observé par les vues)
     @Published var username: String = "Inconnu"
     
-    // Référence à la racine du classement dans Firebase (initialisée dans init)
     private let databaseRef: DatabaseReference
     
-    // Les données du classement que la vue affichera
     @Published var leaderboard: [LeaderboardEntry] = []
     
-    // Initialisation pour charger l'ID, le nom ET configurer la DB
+    // NOUVEAU : Handle pour l'observateur en temps réel
+    private var leaderboardHandle: DatabaseHandle?
+    
     init() {
-        // Configuration de la base de données avec l'URL de la région spécifique (CORRECTION DE L'ERREUR DE RÉGION)
+        // Configuration de la base de données avec l'URL de la région spécifique
         self.databaseRef = Database.database(url: FIREBASE_DATABASE_URL).reference().child("leaderboard")
         
-        // Assure que l'userID est généré/chargé au démarrage
         _ = self.userID
         
-        // Charger le nom stocké, ou générer un nom aléatoire si nouveau joueur
         if let savedUsername = UserDefaults.standard.string(forKey: "username") {
             self.username = savedUsername
         } else {
-            // Nom par défaut lors du premier lancement
             let newUsername = "Prouteur Anonyme \(Int.random(in: 1000...9999))"
             self.username = newUsername
             UserDefaults.standard.set(newUsername, forKey: "username")
         }
     }
     
+    deinit {
+        stopObservingLeaderboard()
+    }
+    
     /**
      Met à jour le nom d'utilisateur et sauvegarde immédiatement le score actuel
-     pour mettre à jour le classement Firebase avec le nouveau nom.
+     (qui est le lifetimeFarts).
      */
-    func saveNewUsername(_ newName: String, currentScore: Int) {
+    func saveNewUsername(_ newName: String, lifetimeScore: Int) { // <-- MODIFIÉ
         let trimmedName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else { return }
         
-        // 1. Sauvegarde locale du nouveau nom
         UserDefaults.standard.set(trimmedName, forKey: "username")
-        
-        // 2. Mise à jour de la variable Observable
         self.username = trimmedName
         
-        // 3. Mise à jour du classement avec le nouveau nom et le score actuel
-        self.saveScore(score: currentScore)
+        self.saveLifetimeScore(lifetimeScore: lifetimeScore) // Utilise la nouvelle fonction
     }
 
-    // Fonction pour sauvegarder le score (appellée par ContentView)
-    func saveScore(score: Int) {
+    // MODIFIÉ : Sauvegarde le score à vie pour le classement
+    func saveLifetimeScore(lifetimeScore: Int) {
         let entry: [String: Any] = [
             "username": self.username,
-            "score": score
+            "score": lifetimeScore // <-- UTILISATION DU SCORE À VIE
         ]
         
-        // Sauvegarde le score sous l'ID unique de l'utilisateur
         databaseRef.child(userID).setValue(entry) { error, _ in
             if let error = error {
-                print("Erreur Firebase: Échec de la sauvegarde du score: \(error.localizedDescription)")
+                print("Erreur Firebase: Échec de la sauvegarde du score à vie: \(error.localizedDescription)")
             }
         }
     }
     
-    // Fonction pour charger le classement depuis Firebase
-    func fetchLeaderboard() {
-        // queryOrdered(byChild: "score") et queryLimited(toLast: 100) sont utilisés ici
-        databaseRef.queryOrdered(byChild: "score").queryLimited(toLast: 100).observeSingleEvent(of: .value) { snapshot in
+    // NOUVEAU : Fonction pour OBSERVER en temps réel
+    func startObservingLeaderboard() {
+        // S'assure d'arrêter toute observation existante
+        stopObservingLeaderboard()
+        
+        let query = databaseRef.queryOrdered(byChild: "score").queryLimited(toLast: 100)
+        
+        // Utilise observe(.value) pour la mise à jour en temps réel
+        leaderboardHandle = query.observe(.value) { snapshot in
             var fetchedEntries: [LeaderboardEntry] = []
             
             guard let value = snapshot.value as? [String: [String: Any]] else {
@@ -103,10 +102,19 @@ class GameManager: ObservableObject {
                 }
             }
             
+            // Tri descendant
             self.leaderboard = fetchedEntries.sorted { $0.score > $1.score }
             
         } withCancel: { error in
-            print("Erreur Firebase: Échec de la lecture du classement: \(error.localizedDescription)")
+            print("Erreur Firebase: Échec de l'observation du classement: \(error.localizedDescription)")
+        }
+    }
+    
+    // NOUVEAU : Fonction pour arrêter l'observation (à l'extinction de la vue)
+    func stopObservingLeaderboard() {
+        if let handle = leaderboardHandle {
+            databaseRef.removeObserver(withHandle: handle)
+            leaderboardHandle = nil
         }
     }
 }

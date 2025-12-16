@@ -1,113 +1,100 @@
 import SwiftUI
-import Foundation
 import Combine
 
-// --- TYPE D'OBJET ---
-enum ItemType: String, Codable {
-    case building = "Bâtiment" // On peut en acheter l'infini
-    case upgrade = "Amélioration" // On l'achète une seule fois
-    case clicker = "Outil" // Pour le clic manuel
-}
+// NOTE: Nécessite ShopModels.swift, ShopList_Standard.swift, ShopList_Cosmetics.swift
 
-// --- DEFINITION DES OBJETS ---
-struct ShopItem: Identifiable {
-    let id = UUID()
-    let name: String
-    let description: String
-    let baseCost: Int
-    let dpsRate: Double          // Pets par 10s (Auto)
-    let clickMultiplier: Int     // Bonus Clic
-    let emoji: String
-    let unlockThreshold: Int     // Palier de déblocage
-    let type: ItemType           // Nouveau : Type d'objet
-    let requiredItem: String?    // Nouveau : Si c'est une amélioration pour un objet précis
-}
-
-// --- LA GRANDE LISTE DE LA PROUTIQUE ---
-let shopItems: [ShopItem] = [
-    // --- TIERS 1 : BÂTIMENTS (AUTO) ---
-    ShopItem(name: "Haricot Magique", description: "L'automatisation débute. 1 pet / 10s.", baseCost: 50, dpsRate: 1.0, clickMultiplier: 0, emoji: "🫘", unlockThreshold: 100, type: .building, requiredItem: nil),
-    ShopItem(name: "Tonton Blagueur", description: "Tire sur mon doigt ! 5 pets / 10s.", baseCost: 150, dpsRate: 5.0, clickMultiplier: 0, emoji: "🤡", unlockThreshold: 200, type: .building, requiredItem: nil),
-    ShopItem(name: "Bol de Chili", description: "Ça chauffe. 10 pets / 10s.", baseCost: 500, dpsRate: 10.0, clickMultiplier: 0, emoji: "🌶️", unlockThreshold: 500, type: .building, requiredItem: nil),
-    ShopItem(name: "Cours de Yoga", description: "Relâchement total. 25 pets / 10s.", baseCost: 2000, dpsRate: 25.0, clickMultiplier: 0, emoji: "🧘", unlockThreshold: 2000, type: .building, requiredItem: nil),
-    ShopItem(name: "Vache Laitière", description: "Méthane bio. 80 pets / 10s.", baseCost: 5000, dpsRate: 80.0, clickMultiplier: 0, emoji: "🐄", unlockThreshold: 5000, type: .building, requiredItem: nil),
-    ShopItem(name: "Soupe aux Choux", description: "La Glaude approuve. 200 pets / 10s.", baseCost: 15000, dpsRate: 200.0, clickMultiplier: 0, emoji: "🍲", unlockThreshold: 10000, type: .building, requiredItem: nil),
-    ShopItem(name: "Grand-mère Active", description: "L'expérience parle. 500 pets / 10s.", baseCost: 50000, dpsRate: 500.0, clickMultiplier: 0, emoji: "👵", unlockThreshold: 40000, type: .building, requiredItem: nil),
-    ShopItem(name: "Usine de Cassoulet", description: "Production de masse. 2000 pets / 10s.", baseCost: 200000, dpsRate: 2000.0, clickMultiplier: 0, emoji: "🏭", unlockThreshold: 150000, type: .building, requiredItem: nil),
-    ShopItem(name: "Compresseur à Gaz", description: "Industriel. 10k pets / 10s.", baseCost: 1000000, dpsRate: 10000.0, clickMultiplier: 0, emoji: "⚙️", unlockThreshold: 800000, type: .building, requiredItem: nil),
-    ShopItem(name: "Vortex Temporel", description: "Pète hier et demain. 50k pets / 10s.", baseCost: 5000000, dpsRate: 50000.0, clickMultiplier: 0, emoji: "🌌", unlockThreshold: 4000000, type: .building, requiredItem: nil),
-    ShopItem(name: "Big Bang Intestinal", description: "L'origine de l'univers. 1M pets / 10s.", baseCost: 50000000, dpsRate: 1000000.0, clickMultiplier: 0, emoji: "💥", unlockThreshold: 20000000, type: .building, requiredItem: nil),
-
-    // --- TIERS 2 : CLIC (MANUEL) ---
-    ShopItem(name: "Slip Aéré", description: "Confort de tir. +2 Clics.", baseCost: 300, dpsRate: 0.0, clickMultiplier: 2, emoji: "🩲", unlockThreshold: 0, type: .clicker, requiredItem: nil),
-    ShopItem(name: "Siège de Course", description: "Stabilité. +5 Clics.", baseCost: 1200, dpsRate: 0.0, clickMultiplier: 5, emoji: "🏎️", unlockThreshold: 500, type: .clicker, requiredItem: nil),
-    ShopItem(name: "Doigt Bionique", description: "Précision. +50 Clics.", baseCost: 25000, dpsRate: 0.0, clickMultiplier: 50, emoji: "🦾", unlockThreshold: 20000, type: .clicker, requiredItem: nil),
-
-    // --- TIERS 3 : AMÉLIORATIONS (UPGRADES - Achat Unique) ---
-    ShopItem(name: "Sauce Piquante", description: "Les haricots sont 2x plus efficaces.", baseCost: 1000, dpsRate: 0.0, clickMultiplier: 0, emoji: "🌶️", unlockThreshold: 500, type: .upgrade, requiredItem: "Haricot Magique"),
-    ShopItem(name: "Livre de Blagues", description: "Tonton est 2x plus drôle (et efficace).", baseCost: 5000, dpsRate: 0.0, clickMultiplier: 0, emoji: "📖", unlockThreshold: 2000, type: .upgrade, requiredItem: "Tonton Blagueur"),
-    ShopItem(name: "Double Culotte", description: "Les pets manuels sont doublés !", baseCost: 10000, dpsRate: 0.0, clickMultiplier: 0, emoji: "👖", unlockThreshold: 5000, type: .upgrade, requiredItem: nil)
-]
-
-// --- MODELE DE DONNEES ---
 class GameData: ObservableObject {
     
-    // Compteurs Principaux
+    // --- MONNAIES ET COMPTEURS ---
     @AppStorage("TotalFartCount") var totalFartCount: Int = 0
-    
-    // Remplacement de lifetimeFarts par une version simple qui n'est qu'un stockage
     @AppStorage("LifetimeFarts") var lifetimeFarts: Int = 0
+    @AppStorage("GoldenToiletPaper") var goldenToiletPaper: Int = 0 // Monnaie Premium
     
-    // Inventaire
-    @Published var autoFarterLevels: [String: Int] = loadAutoFarterLevels() {
-        didSet { saveAutoFarterLevels(autoFarterLevels) }
+    // Signal pour l'animation (Compteur d'événements)
+    @Published var autoFarterUpdateCount: Int = 0
+    
+    // État des attaques subies (ID de l'effet : Date de fin)
+    @Published var activeAttacks: [String: Date] = [:]
+    
+    // Niveaux des objets (Sauvegardés)
+    @Published var itemLevels: [String: Int] = loadItemLevels() {
+        didSet { saveItemLevels(itemLevels) }
+    }
+    
+    // Combine les deux listes de la boutique pour les calculs globaux
+    var allItems: [ShopItem] {
+        return standardShopItems + cosmeticShopItems
     }
     
     // --- LOGIQUE DE CALCUL ---
     
-    // Plus de multiplicateur de prestige
     var prestigeMultiplier: Double { 1.0 }
     
-    // Calcul PPS (simplifié sans prestige multiplier)
+    // Calcul PPS (Mise à jour pour la nouvelle structure)
     var petsPerSecond: Double {
         var totalDPS: Double = 0
+        var globalDPSMultiplier: Double = 1.0
         
-        // 1. Calcul de base des bâtiments
-        for item in shopItems.filter({ $0.type == .building }) {
-            let count = autoFarterLevels[item.name, default: 0]
+        // 1. Calcul des multiplicateurs globaux de PPS (Upgrades)
+        if itemLevels["Tuyauterie XXL", default: 0] > 0 { globalDPSMultiplier *= 1.02 }
+        if itemLevels["Filtre à Gaz", default: 0] > 0 { globalDPSMultiplier *= 1.05 }
+        if itemLevels["Climatiseur", default: 0] > 0 { globalDPSMultiplier *= 1.10 }
+        if itemLevels["Câblage Optique", default: 0] > 0 { globalDPSMultiplier *= 1.15 }
+
+        // 2. Calcul des bâtiments
+        for item in standardShopItems.filter({ $0.category == .production }) { // Filtre sur la category
+            let count = itemLevels[item.name, default: 0]
+            if count == 0 { continue }
+            
             var itemDPS = Double(count) * (item.dpsRate / 10.0)
             
-            // Vérifier les améliorations (Upgrades)
-            if let upgrade = shopItems.first(where: { $0.type == .upgrade && $0.requiredItem == item.name }) {
-                if autoFarterLevels[upgrade.name, default: 0] > 0 {
-                    itemDPS *= 2.0
+            // 3. Vérifier les améliorations spécifiques
+            if let upgrade = standardShopItems.first(where: { $0.category == .amelioration && $0.requiredItem == item.name }) {
+                if itemLevels[upgrade.name, default: 0] > 0 {
+                    // Logique simplifiée : double ou triple la production
+                    if upgrade.name.contains("Triple") || upgrade.name.contains("Cage") || upgrade.name.contains("Engrais") || upgrade.name.contains("Épices") {
+                        itemDPS *= 3.0
+                    } else { // double pour les autres
+                        itemDPS *= 2.0
+                    }
                 }
             }
             
             totalDPS += itemDPS
         }
         
-        // Pas d'application de prestige multiplier
-        return totalDPS
+        // VÉRIFICATION D'ATTAQUE (NOUVEAU)
+        if activeAttacks.keys.contains("attack_dps_reduction_50") {
+                // Si l'attaque est en cours, réduire le DPS global.
+                globalDPSMultiplier *= 0.5
+        }
+        
+        // 4. Application des multiplicateurs globaux
+        return totalDPS * globalDPSMultiplier
     }
     
-    // Calcul Puissance Clic (simplifié sans prestige multiplier)
+    // Calcul Puissance Clic (Mise à jour pour la nouvelle structure)
     var clickPower: Int {
-        var power = 1
+        var power: Double = 1.0
+        var globalPPCMultiplier: Double = 1.0
         
-        // Bonus des objets clics
-        for item in shopItems.filter({ $0.type == .clicker }) {
-            let count = autoFarterLevels[item.name, default: 0]
-            power += count * item.clickMultiplier
+        // 1. Calcul des bonus d'objets (PPC de base)
+        for item in standardShopItems.filter({ $0.category == .outil }) {
+            let count = itemLevels[item.name, default: 0]
+            power += Double(count * item.clickMultiplier)
         }
         
-        // Bonus Upgrade Global (Double Culotte)
-        if autoFarterLevels["Double Culotte", default: 0] > 0 {
-            power *= 2
-        }
+        // 2. Calcul des multiplicateurs globaux de PPC (Upgrades)
+        if itemLevels["Double Culotte", default: 0] > 0 { globalPPCMultiplier *= 2.0 }
+        if itemLevels["Peau de Vache", default: 0] > 0 { globalPPCMultiplier *= 1.02 }
+        if itemLevels["Vernis à Ongles", default: 0] > 0 { globalPPCMultiplier *= 1.05 }
+        if itemLevels["Gant de Pêche", default: 0] > 0 { globalPPCMultiplier *= 1.10 }
+        if itemLevels["Siège Ergonomique", default: 0] > 0 { globalPPCMultiplier *= 1.15 }
+
+        // 3. Application du multiplicateur global
+        power *= globalPPCMultiplier
         
-        // Pas d'application de prestige multiplier
-        return power
+        return Int(power.rounded())
     }
     
     var calculatedPoopScale: CGFloat {
@@ -116,39 +103,137 @@ class GameData: ObservableObject {
         return min(baseSize + growthFactor, 3.5)
     }
 
-    // --- LOGIQUE D'ADMIN ---
+    // --- LOGIQUE D'ACHAT CENTRALISÉE ---
+    func attemptPurchase(item: ShopItem) -> Bool {
+        let level = itemLevels[item.name, default: 0]
+        
+        // 1. Calcul du Coût (utilisé aussi dans ShopView)
+        let cost: Int
+        if item.currency == .goldenPaper || item.category == .amelioration {
+            cost = item.baseCost // Prix fixe
+        } else {
+            cost = Int(Double(item.baseCost) * pow(1.2, Double(level))) // Prix progressif
+        }
+        
+        // 2. Vérifications de disponibilité (Achat unique et prérequis)
+        if (item.currency == .goldenPaper || item.category == .amelioration) && level > 0 { return false }
+        if let req = item.requiredItem, let reqCount = item.requiredItemCount {
+            if itemLevels[req, default: 0] < reqCount { return false }
+        }
+        
+        // 3. Vérification Solde et Dépense
+        if item.currency == .pets {
+            if totalFartCount < cost { return false }
+            totalFartCount -= cost // Dépense Pets
+        } else { // Golden Paper
+            if goldenToiletPaper < cost { return false }
+            goldenToiletPaper -= cost // Dépense PQ
+        }
+        
+        // 4. Succès: Augmenter le niveau
+        if item.isConsumable {
+            // Si c'est un Perturbateur consommable (à implémenter via un compteur si vous le gérez en stock)
+            // Pour l'instant, nous considérons la plupart des Perturbateurs comme des achats uniques d'accès.
+        } else {
+            itemLevels[item.name, default: 0] += 1
+        }
+        
+        // NOUVEAU : Si c'est un Bâtiment (auto-peteur), déclencher le signal.
+        if item.category == .production {
+            autoFarterUpdateCount += 1
+        }
+
+        return true
+    }
     
-    // Suppression des fonctions de prestige
+    // NOUVEAU : Fonction pour appliquer une attaque (appelée par GameManager)
+    func applyAttack(effectID: String, duration: Int) -> Bool {
+        // 1. Vérifier la défense avant d'appliquer
+        if checkDefense(against: effectID) {
+            return false // Attaque bloquée
+        }
+            
+        // 2. Appliquer l'attaque
+        let endTime = Date().addingTimeInterval(TimeInterval(duration * 60))
+            activeAttacks[effectID] = endTime
+        return true
+    }
+        
+    // NOUVEAU : Fonction pour vérifier les défenses (utilisée dans applyAttack et pour les événements PvE)
+    func checkDefense(against attackID: String) -> Bool {
+        // Vérifie si l'utilisateur possède l'objet de défense correspondant.
+        
+        // Exemple 1 : Défense contre le Pet Foireux (PvE)
+        if attackID == "event_pet_foireux" && itemLevels["Smecta", default: 0] > 0 {
+            return true
+        }
+        // Exemple 2 : Défense contre le Spray Désodorisant (PvP)
+        if attackID == "attack_dps_reduction_50" && itemLevels["Bouchon de Fesses", default: 0] > 0 {
+            return true
+        }
+        
+        // Ajoutez ici toute la logique de défense basée sur itemLevels
+        return false
+    }
     
     // VRAI RESET (Pour les tests ou recommencer à zéro zéro)
     func hardReset() {
         totalFartCount = 0
         lifetimeFarts = 0
-        autoFarterLevels = [:]
+        goldenToiletPaper = 0 // Réinitialisation de la monnaie premium
+        itemLevels = [:]
     }
     
-    // Helper pour l'affichage
+    // Helper pour l'affichage (Utilisé pour la petite barre d'inventaire dans ContentView)
     var ownedItemsDisplay: [String] {
-        return autoFarterLevels
-            .filter { $0.value > 0 }
-            .map { key, value in
-                let emoji = shopItems.first(where: { $0.name == key })?.emoji ?? ""
-                return "\(emoji) \(value)"
-            }
+        return allItems
+            // NOUVEAU FILTRE : ON MONTRE SEULEMENT LES OUTILS DE CLIC
+            .filter { $0.category == .outil }
+            .compactMap { item in
+                let value = itemLevels[item.name, default: 0]
+                if value > 0 {
+                    // On affiche seulement l'emoji et le niveau/compte
+                    return "\(item.emoji) \(value)"
+                }
+                return nil // Ignore les objets non possédés ou non cliquables
+        }
+    }
+    // --- NOUVELLES FONCTIONS DE DÉBOGAGE ---
+
+    /// Ajoute une grande quantité de Pets pour le test.
+    func addCheatPets() {
+        // Ajout de 1 milliard de pets pour couvrir tous les tiers rapidement.
+        self.totalFartCount += 1_000_000_000
+        self.lifetimeFarts += 1_000_000_000
+    }
+        
+    /// Ajoute une grande quantité de PQ d'Or pour le test des cosmétiques.
+    func addCheatGoldenPaper() {
+        self.goldenToiletPaper += 999
+    }
+        
+    /// Réinitialise l'état du jeu au niveau 0 (utile pour le test)
+    func softReset() {
+        self.totalFartCount = 0
+        self.lifetimeFarts = 0
+        self.goldenToiletPaper = 0
+        self.itemLevels = [:] // Réinitialise l'inventaire
+        self.activeAttacks = [:] // Réinitialise les attaques subies
+        // Invalider le timer PPS dans ContentView après cet appel !
     }
 }
 
-// --- SAUVEGARDE ---
-private func saveAutoFarterLevels(_ levels: [String: Int]) {
+// --- PERSISTANCE ---
+private func saveItemLevels(_ levels: [String: Int]) {
     if let encoded = try? JSONEncoder().encode(levels) {
-        UserDefaults.standard.set(encoded, forKey: "AutoFarterLevels")
+        UserDefaults.standard.set(encoded, forKey: "SavedItemLevels")
     }
 }
 
-private func loadAutoFarterLevels() -> [String: Int] {
-    if let savedData = UserDefaults.standard.data(forKey: "AutoFarterLevels"),
-       let decodedLevels = try? JSONDecoder().decode([String: Int].self, from: savedData) {
-        return decodedLevels
+private func loadItemLevels() -> [String: Int] {
+    if let data = UserDefaults.standard.data(forKey: "SavedItemLevels"),
+       let decoded = try? JSONDecoder().decode([String: Int].self, from: data) {
+        return decoded
     }
     return [:]
 }

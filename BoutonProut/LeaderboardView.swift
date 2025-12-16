@@ -1,7 +1,5 @@
 import SwiftUI
 
-// NOTE: Assurez-vous que le fichier StyleConstants.swift est bien créé et contient AppStyle et CustomTitleBar.
-
 struct LeaderboardView: View {
     @ObservedObject var gameManager: GameManager
     
@@ -9,14 +7,12 @@ struct LeaderboardView: View {
     
     var body: some View {
         ZStack {
-            // Fond sombre unifié
             AppStyle.secondaryBackground.edgesIgnoringSafeArea(.all)
             
             VStack(spacing: 0) {
                 // Barre de Titre (Style unifié)
                 CustomTitleBar(title: "Classement 🏆", onDismiss: { dismiss() })
                 
-                // Conteneur Scrollable pour le classement
                 ScrollView {
                     VStack(alignment: .leading, spacing: 10) {
                         
@@ -42,7 +38,6 @@ struct LeaderboardView: View {
                                 .background(AppStyle.listRowBackground)
                                 .cornerRadius(5)
                         } else {
-                            // BOUCLE DE CLASSEMENT RÉINTÉGRÉE ICI
                             ForEach(gameManager.leaderboard.indices, id: \.self) { index in
                                 let entry = gameManager.leaderboard[index]
                                 
@@ -60,15 +55,13 @@ struct LeaderboardView: View {
                                     
                                     Spacer()
                                     
-                                    // Score
+                                    // Score (qui est maintenant le lifetimeFarts)
                                     Text("\(entry.score)")
-                                        // Utilisation du monospaced pour un alignement propre des chiffres
                                         .font(.system(.body, design: .monospaced))
                                         .fontWeight(.bold)
                                 }
                                 .padding(.vertical, 8)
                                 .padding(.horizontal, 10)
-                                // Highlight de la ligne du joueur actuel
                                 .background(entry.id == gameManager.userID ? Color.orange.opacity(0.2) : AppStyle.listRowBackground)
                                 .cornerRadius(5)
                             }
@@ -77,14 +70,15 @@ struct LeaderboardView: View {
                     }
                     .padding(AppStyle.defaultPadding)
                 }
+                // Démarre l'observation en temps réel
                 .onAppear {
-                    // Chargement des données à l'ouverture
-                    gameManager.fetchLeaderboard()
+                    gameManager.startObservingLeaderboard()
                 }
-                .refreshable {
-                    // Permet de rafraîchir en tirant vers le bas
-                    gameManager.fetchLeaderboard()
+                // Arrête l'observation quand la vue est fermée
+                .onDisappear {
+                    gameManager.stopObservingLeaderboard()
                 }
+                // Suppression de .refreshable car l'update est automatique
             }
         }
     }
