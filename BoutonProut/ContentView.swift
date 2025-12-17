@@ -52,6 +52,27 @@ struct ContentView: View {
                     .opacity(poop.y < 0 ? 0 : 1)
             }
             
+            // VERIFICATION VOLUME UTILISATEUR
+            if data.isMuted {
+                VStack(spacing: 10) {
+                    Image(systemName: "speaker.slash.circle.fill")
+                        .font(.system(size: 50))
+                        .foregroundColor(.orange)
+                        .shadow(radius: 10)
+                    VolumeObserver().frame(width: 0, height: 0)
+                    
+                    Text("C'est moins drôle sans le son...")
+                        .font(.caption)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                        .padding(8)
+                        .background(Color.orange.opacity(0.8))
+                        .cornerRadius(8)
+                }
+                .position(x: UIScreen.main.bounds.width / 2, y: UIScreen.main.bounds.height * 0.3)
+                .transition(.scale)
+            }
+            
             VStack(spacing: 0) {
                 
                 // --- EN-TÊTE : SCORE & ALERTE ---
@@ -201,10 +222,13 @@ struct ContentView: View {
     
     // --- LOGIQUE ENGINE ---
     func clickAction() {
-        let produced = data.clickPower
-        data.totalFartCount += produced
-        data.lifetimeFarts += produced
+        // On laisse GameData gérer le calcul avec le malus son
+        data.processProutClick()
+        
+        // On met à jour le leaderboard sur Firebase
         gameManager.saveLifetimeScore(lifetimeScore: data.lifetimeFarts)
+        
+        // Effets visuels et sonores
         audio.triggerFart(isAuto: false)
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }

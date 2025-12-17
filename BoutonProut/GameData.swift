@@ -1,9 +1,11 @@
 import SwiftUI
 import Combine
 import Foundation
+import MediaPlayer
 
 // NOTE: Ce fichier gère l'état global du jeu, l'économie et la logique de combat.
 // Nécessite : ShopModels.swift, ShopList_Standard.swift, ShopList_Cosmetics.swift, ShopList_PvP.swift et CombatLogic.swift
+
 
 // MARK: - STRUCTURES D'AIDE
 struct ActiveAttackInfo: Identifiable {
@@ -14,7 +16,7 @@ struct ActiveAttackInfo: Identifiable {
 }
 
 class GameData: ObservableObject {
-    
+
     // MARK: - ÉCONOMIE ET MONNAIES
     @AppStorage("TotalFartCount") var totalFartCount: Int = 0      // Monnaie actuelle
     @AppStorage("LifetimeFarts") var lifetimeFarts: Int = 0        // Score total (Classement)
@@ -31,6 +33,42 @@ class GameData: ObservableObject {
     @Published var activeAttacks: [String: Date] = [:]
     
     @Published var petAccumulator: Double = 0.0 // Le réservoir pour les fractions de pets
+    
+    // DETECTION DU VOLUME UTILISATEUR
+    @Published var isMuted: Bool = false
+    
+    func processProutClick() {
+        // 1. On force la vérification du volume au moment du clic
+        checkMuteStatus()
+        
+        // 2. On calcule le gain avec le multiplicateur actuel
+        let produced = Int(Double(clickPower) * soundMultiplier)
+        
+        // 3. On met à jour les scores
+        totalFartCount += produced
+        lifetimeFarts += produced
+    }
+    
+    // Ajoute cette fonction pour vérifier le volume
+    func checkMuteStatus() {
+        // On force la mise à jour de la session audio pour lire la valeur réelle
+        let volume = AVAudioSession.sharedInstance().outputVolume
+        
+        // On utilise DispatchQueue pour être sûr que l'UI réagisse au changement
+        DispatchQueue.main.async {
+            // On considère "Muted" si le volume est inférieur à 0.1 (pour éviter les micro-bugs)
+            self.isMuted = (volume < 0.1)
+            
+            // Debug pour voir dans la console si ça réagit
+            print("🔈 Volume actuel: \(volume) | Malus activé: \(self.isMuted)")
+        }
+    }
+
+    // MODIFIE ton multiplicateur global (ou la fonction qui calcule le gain)
+    // Imaginons que tu as une variable globale de profit :
+    var soundMultiplier: Double {
+        return isMuted ? 0.1 : 1.0
+    }
     
     // MARK: - PROPRIÉTÉS CALCULÉES POUR LE COMBAT
     
@@ -59,6 +97,27 @@ class GameData: ObservableObject {
     
     init() {
         self.itemLevels = GameData.loadItemLevels()
+        
+        // --- NOUVEAU : DETECTION DU VOLUME ---
+        // CONFIGURATION AUDIO OBLIGATOIRE
+            do {
+                try AVAudioSession.sharedInstance().setCategory(.ambient, mode: .default)
+                try AVAudioSession.sharedInstance().setActive(true)
+            } catch {
+                print("Erreur configuration AudioSession: \(error)")
+            }
+        // 1. On vérifie l'état initial au lancement
+        checkMuteStatus()
+                
+        // 2. On s'abonne aux changements de volume du système
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name("AVSystemController_SystemVolumeDidChangeNotification"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.checkMuteStatus()
+        }
+        
     }
     
     /// Fusion de toutes les listes de la boutique pour la logique de calcul
@@ -113,8 +172,7 @@ class GameData: ObservableObject {
                 globalDPSMultiplier *= 0.5
             }
         }
-        
-        return totalDPS * globalDPSMultiplier * prestigeMultiplier
+        return totalDPS * globalDPSMultiplier * prestigeMultiplier * soundMultiplier
     }
     
     /// Calcul du PPC (Pets Par Clic)
@@ -129,7 +187,7 @@ class GameData: ObservableObject {
         
         if itemLevels["Double Clic", default: 0] > 0 { globalPPCMultiplier *= 2.0 }
         
-        return Int(power * globalPPCMultiplier)
+        return Int(power * globalPPCMultiplier * soundMultiplier)
     }
     
     /// Taille visuelle du bouton prout selon la richesse
@@ -361,4 +419,18 @@ class GameData: ObservableObject {
         }
         return [:]
     }
+}
+
+import SwiftUI
+import MediaPlayer
+
+struct VolumeObserver: UIViewRepresentable {
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView(frame: .zero)
+        let volumeView = MPVolumeView(frame: .zero)
+        volumeView.alpha = 0.001 // Presque invisible mais présent
+        view.addSubview(volumeView)
+        return view
+    }
+    func updateUIView(_ uiView: UIView, context: Context) {}
 }
