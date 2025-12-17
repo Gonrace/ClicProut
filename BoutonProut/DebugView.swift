@@ -30,17 +30,29 @@ struct DebugView: View {
                 
                 Divider()
                     .padding(.vertical, 10)
+                                
+                Button("Simuler Attaque Reçue (5 min)") {
+                    // On appelle directement la fonction de GameData
+                    let _ = data.applyAttack(effectID: "attack_dps_reduction_50", duration: 5)
+                }
+                .tint(.purple)
                 
                 // --- Réinitialisation ---
-                
-                Button(role: .destructive) {
-                    data.softReset()
-                    // Si vous avez un timer dans ContentView, vous devez le réinitialiser après
-                    // avoir appelé cette fonction (voir point 3 ci-dessous).
-                    dismiss()
-                } label: {
-                    Text("RÉINITIALISER TOUT (Soft Reset)")
-                        .padding(.horizontal, 20)
+
+                // Dans ta DebugView.swift
+                Button(role: .destructive, action: {
+                    data.hardReset()
+                    // Optionnel : fermer le menu debug après le reset
+                }) {
+                    HStack {
+                        Image(systemName: "trash.fill")
+                        Text("RÉINITIALISATION TOTALE (WIPE)")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color.red)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
                 }
                 .buttonStyle(.borderedProminent)
                 

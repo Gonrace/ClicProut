@@ -1,114 +1,113 @@
 import SwiftUI
-import UIKit // Nécessaire pour UIApplication.shared.sendAction
-// Assurez-vous d'avoir bien importé UINotificationFeedbackGenerator dans ShopView ou ailleurs si nécessaire.
+import UIKit
 
-// NOTE: Les classes GameData, AudioEngine, et GameManager doivent exister.
-
-// --- STRUCTURE D'AIDE pour l'animation ---
+// --- 1. STRUCTURES D'AIDE ---
 struct FallingPoop: Identifiable {
     let id = UUID()
     let emoji: String = "💩"
-    let x: CGFloat         // Position horizontale de départ
-    var y: CGFloat = 0     // Position verticale (défilement)
-    let size: CGFloat      // Taille de la merde
-    let rotation: Angle    // Angle de rotation
-    let duration: Double   // Vitesse de défilement
+    let x: CGFloat
+    var y: CGFloat = 0
+    let size: CGFloat
+    let rotation: Angle
+    let duration: Double
 }
 
 struct ContentView: View {
     
     // --- SOURCES DE VÉRITÉ ---
     @StateObject var data = GameData()
-    @StateObject var audio = AudioEngine() // Supposons que AudioEngine existe
-    @StateObject var gameManager = GameManager() // Gestionnaire Firebase
+    @StateObject var audio = AudioEngine()
+    @StateObject var gameManager = GameManager()
     
-    // --- ÉTATS LOCAUX (Vues & Animation) ---
+    // --- ÉTATS LOCAUX ---
     @State private var timer: Timer?
-    
-    // Gestion des fenêtres
-    @State private var showingShop = false      // Page Magasin
-    @State private var showingStats = false     // Page Statistique
-    @State private var showingLeaderboard = false // Page Classement
-    @State private var showingInventory = false // Page mes Objets
-    
-    // Animations visuelles
-    @State private var scale: CGFloat = 1.0     // Écrasement (Clic Manuel)
-    @State private var autoScale: CGFloat = 1.0  // Petit Rebond (Auto-Pet)
-    
-    // Logique mathématique (Accumulateur pour les pets à virgule)
-    @State private var petAccumulator: Double = 0.0
-    
-    // NOUVEAU : Tableau pour stocker les particules animées
-    @State private var fallingPoops: [FallingPoop] = []
-                
-    // NOUVEAU : Timer pour l'animation de chute
     @State private var fallingPoopTimer: Timer?
     
-    // Ajout de l'état pour la vue de débogage
-    @State private var showingDebug = false // ÉTAT CORRECT
+    // États pour l'ouverture des menus (Sheets)
+    @State private var showingStats = false      // 1. Stats
+    @State private var showingLeaderboard = false // 2. Classement
+    @State private var showingCombat = false      // 3. Combat/Attaque
+    @State private var showingInventory = false   // 4. Inventaire
+    @State private var showingShop = false        // 5. Boutique
+    @State private var showingDebug = false
     
-    // Couleur de fond (Bleu nuit apaisant)
+    @State private var scale: CGFloat = 1.0
+    @State private var autoScale: CGFloat = 1.0
+    @State private var petAccumulator: Double = 0.0
+    @State private var fallingPoops: [FallingPoop] = []
+    
     let customBackground = Color(red: 0.1, green: 0.15, blue: 0.2)
     
     var body: some View {
         ZStack {
-            // 1. Fond d'écran
+            // FOND
             customBackground.edgesIgnoringSafeArea(.all)
             
-            // NOUVEAU : Calque des Particules de merde
+            // CALQUE DES PARTICULES (Pluie de caca)
             ForEach(fallingPoops) { poop in
                 Text(poop.emoji)
                     .font(.system(size: poop.size))
                     .rotationEffect(poop.rotation)
-                    // Positionnement absolu sur l'écran
                     .position(x: poop.x, y: poop.y)
-                    .opacity(poop.y < 0 ? 0 : 1) // Cache au-dessus de l'écran
+                    .opacity(poop.y < 0 ? 0 : 1)
             }
             
-            VStack {
+            VStack(spacing: 0) {
                 
-                // 2. EN-TÊTE : SCORE & PPS & PPC & PQ D'OR
+                // --- EN-TÊTE : SCORE & ALERTE ---
                 VStack(spacing: 5) {
                     Text("\(data.totalFartCount)")
                         .font(.system(size: 60, weight: .heavy, design: .rounded))
                         .foregroundColor(.yellow)
                         .animation(.spring(), value: data.totalFartCount)
                                 
-                    Text("Pets Par Seconde: \(String(format: "%.2f", data.petsPerSecond))")
+                    Text("PPS: \(String(format: "%.2f", data.petsPerSecond)) | PPC: \(data.clickPower)")
                         .font(.caption)
                         .fontWeight(.bold)
                         .foregroundColor(.gray)
-                        .padding(.top, 5)
 
-                    // Puissance de Clic
-                    Text("Pets Par Clic: \(data.clickPower)")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundColor(.green.opacity(0.7))
-                        
-                    // PQ D'OR (Ajouté pour la cohérence de l'affichage)
                     Text("PQ d'Or: \(data.goldenToiletPaper) 👑")
                         .font(.caption)
                         .fontWeight(.bold)
                         .foregroundColor(.yellow)
-                        .padding(.top, 5)
+                    
+                    // ALERTE D'ATTAQUE : Maintenant un bouton qui ouvre le menu Combat
+                    if data.isUnderAttack {
+                        Button(action: { showingCombat = true }) {
+                            HStack(spacing: 10) {
+                                Image(systemName: "bolt.shield.fill")
+                                    .font(.title3)
+                                
+                                VStack(alignment: .leading) {
+                                    Text("ATTAQUE DE \(data.lastAttackerName.uppercased()) !")
+                                        .font(.caption).fontWeight(.black)
+                                    Text("Touché par : \(data.lastAttackWeapon)")
+                                        .font(.system(size: 10))
+                                }
+                            }
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 15)
+                            .background(Color.red.opacity(0.9))
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.6), lineWidth: 1))
+                        }
+                        .padding(.top, 10)
+                        .shadow(radius: 5)
+                    }
                 }
                 .padding(.top, 50)
                 
                 Spacer()
                 
-                // 3. LE BOUTON CENTRAL (CACA)
+                // --- BOUTON CENTRAL (LE CACA) ---
                 Text("💩")
                     .font(.system(size: 110))
                     .shadow(color: .yellow.opacity(0.8), radius: 30)
-                    
                     .scaleEffect(data.calculatedPoopScale)
-                    .scaleEffect(scale)     // Écrasement manuel
-                    .scaleEffect(autoScale) // Rebond auto
-                    
-                    .onTapGesture {
-                        self.clickAction()
-                    }
+                    .scaleEffect(scale)
+                    .scaleEffect(autoScale)
+                    .onTapGesture { self.clickAction() }
                     .simultaneousGesture(
                         DragGesture(minimumDistance: 0)
                             .onChanged { _ in self.animateClick(isPressed: true) }
@@ -117,111 +116,85 @@ struct ContentView: View {
                 
                 Spacer()
                 
-                // 4. INVENTAIRE (Objets possédés affichés en bas)
+                // --- INVENTAIRE RAPIDE ---
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 15) {
                         ForEach(data.ownedItemsDisplay, id: \.self) { item in
                             Text(item)
-                                .font(.headline)
-                                .foregroundColor(.white)
-                                .padding(.vertical, 5)
-                                .padding(.horizontal, 10)
-                                .background(Color.white.opacity(0.1))
-                                .cornerRadius(8)
+                                .font(.headline).foregroundColor(.white)
+                                .padding(.vertical, 5).padding(.horizontal, 10)
+                                .background(Color.white.opacity(0.1)).cornerRadius(8)
                         }
                     }
                     .padding(.horizontal, 20)
                 }
                 .frame(height: 50)
-                .padding(.bottom, 20)
+                .padding(.bottom, 10)
                 
-                // 5. BARRE DE NAVIGATION (Icônes uniquement)
+                // --- BARRE DE NAVIGATION (ORDRE : Stats, Classement, Combat, Inventaire, Boutique) ---
                 HStack(spacing: 0) {
-                    // BOUTON STATS
+                    // 1. Stats
                     NavButton(icon: "chart.bar.fill", action: { showingStats = true }, color: .purple)
                     
-                    // BOUTON CLASSEMENT
+                    // 2. Classement
                     NavButton(icon: "trophy.fill", action: { showingLeaderboard = true }, color: .orange)
                     
-                    // BOUTON OBJETS (INVENTAIRE)
+                    // 3. COMBAT (CENTRAL - ÉCLAIR)
+                    Button(action: { showingCombat = true }) {
+                        ZStack {
+                            Circle()
+                                .fill(data.isUnderAttack ? Color.red : Color.gray.opacity(0.5))
+                                .frame(width: 55, height: 55)
+                                .shadow(color: data.isUnderAttack ? .red.opacity(0.6) : .black.opacity(0.3), radius: 8)
+                            Image(systemName: "bolt.fill")
+                                .foregroundColor(.white)
+                                .font(.title2)
+                        }
+                        .offset(y: -15)
+                    }
+                    .frame(maxWidth: .infinity)
+                    
+                    // 4. Inventaire
                     NavButton(icon: "person.text.rectangle", action: { showingInventory = true }, color: .teal)
                     
-                    // BOUTON PROUTIQUE
+                    // 5. Boutique
                     NavButton(icon: "bag.fill", action: { showingShop = true }, color: .blue)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 10)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
                 .background(Color.black.opacity(0.4))
-                .cornerRadius(15)
-                .padding(.horizontal, 20)
+                .cornerRadius(20)
+                .padding(.horizontal, 15)
                 .padding(.bottom, 20)
             }
         }
-        
-        // --- LOGIQUE INVISIBLE (LIFECYCLE) ---
-        
-        // CORRECTION: Démarrage de l'observateur PvP ici
         .onAppear {
             self.startAutoFartTimer()
-            self.startFallingPoopTimer() // Démarrer le timer d'animation
-            
-            // CORRECTION APPLIQUÉE ICI : Utiliser 'self.' pour lever l'ambiguïté.
-            self.gameManager.startObservingIncomingAttacks(data: data) // Démarrer l'écoute PvP
+            self.startFallingPoopTimer()
+            self.gameManager.startObservingIncomingAttacks(data: data)
         }
-        
-        .onChange(of: data.petsPerSecond) { self.startAutoFartTimer() }
-
-        // NOUVEAU: Logique de réinitialisation pour le bouton DEV
-        .onChange(of: data.totalFartCount) {
-            if data.totalFartCount == 0 && data.itemLevels.isEmpty {
-                self.startAutoFartTimer()
-            }
-        }
-        
         .onDisappear {
-            self.timer?.invalidate(); self.timer = nil
-            self.fallingPoopTimer?.invalidate(); self.fallingPoopTimer = nil
-            gameManager.stopObservingLeaderboard() // Assurez-vous que l'observation s'arrête
+            self.timer?.invalidate()
+            self.fallingPoopTimer?.invalidate()
         }
-        
-        // OUVERTURE DES FENÊTRES (SHEETS)
-        .sheet(isPresented: $showingShop) {
-            ShopView(data: data)
-                .interactiveDismissDisabled(true)
-        }
-        .sheet(isPresented: $showingStats) {
-            StatsView(data: data, gameManager: gameManager)
-                .interactiveDismissDisabled(true)
-        }
-        .sheet(isPresented: $showingLeaderboard) {
-            LeaderboardView(gameManager: gameManager, data: data) // Passez 'data' pour la logique d'attaque
-                .interactiveDismissDisabled(true)
-        }
-        .sheet(isPresented: $showingInventory) {
-            InventoryView(data: data)
-                .interactiveDismissDisabled(true)
-        }
-        
-        // AJOUT du sheet pour la vue de débogage
-        .sheet(isPresented: $showingDebug) {
-            DebugView(data: data)
-                .interactiveDismissDisabled(true)
-        }
+        // FENÊTRES (SHEETS)
+        .sheet(isPresented: $showingStats) { StatsView(data: data, gameManager: gameManager).interactiveDismissDisabled(true) }
+        .sheet(isPresented: $showingLeaderboard) { LeaderboardView(gameManager: gameManager, data: data).interactiveDismissDisabled(true) }
+        .sheet(isPresented: $showingCombat) { CombatView(data: data).interactiveDismissDisabled(true) }
+        .sheet(isPresented: $showingInventory) { InventoryView(data: data).interactiveDismissDisabled(true) }
+        .sheet(isPresented: $showingShop) { ShopView(data: data).interactiveDismissDisabled(true) }
+        .sheet(isPresented: $showingDebug) { DebugView(data: data).interactiveDismissDisabled(true) }
     }
     
-    // --- FONCTIONS ET LOGIQUE (INCHANGÉES) ---
-    
+    // --- LOGIQUE ENGINE ---
     func clickAction() {
-        let producedPets = data.clickPower
-        
-        data.totalFartCount += producedPets
-        data.lifetimeFarts += producedPets
-        
+        let produced = data.clickPower
+        data.totalFartCount += produced
+        data.lifetimeFarts += produced
         gameManager.saveLifetimeScore(lifetimeScore: data.lifetimeFarts)
         audio.triggerFart(isAuto: false)
-        let generator = UIImpactFeedbackGenerator(style: .medium)
-        generator.impactOccurred()
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     }
     
     func animateClick(isPressed: Bool) {
@@ -230,133 +203,65 @@ struct ContentView: View {
         }
     }
     
-    func triggerAutoPulse() {
-        withAnimation(.spring(response: 0.15, dampingFraction: 0.3)) {
-            self.autoScale = 1.05
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            withAnimation(.spring(response: 0.15, dampingFraction: 0.3)) {
-                self.autoScale = 1.0
-            }
-        }
-    }
-    
     func startAutoFartTimer() {
         self.timer?.invalidate()
-        self.timer = nil
-        
-        let pps = data.petsPerSecond
-        if pps == 0 { return }
-        
-        let tickRate = 0.05
-        
-        self.timer = Timer.scheduledTimer(withTimeInterval: tickRate, repeats: true) { _ in
-            
-            self.petAccumulator += pps * tickRate
-            
+        let tick = 0.05
+        self.timer = Timer.scheduledTimer(withTimeInterval: tick, repeats: true) { _ in
+            let pps = data.petsPerSecond
+            if pps <= 0 { return }
+            self.petAccumulator += pps * tick
             if self.petAccumulator >= 1.0 {
-                
-                let newPets = Int(self.petAccumulator)
-                
-                data.totalFartCount += newPets
-                data.lifetimeFarts += newPets
-                
-                gameManager.saveLifetimeScore(lifetimeScore: data.lifetimeFarts)
-                self.petAccumulator -= Double(newPets)
-                
-                // LOGIQUE DE PLUIE DE CACA
-                self.triggerPoopRainOnAutoFart(producedAmount: newPets)
-                
-                if pps < 5.0 {
-                    audio.triggerFart(isAuto: true)
-                    self.triggerAutoPulse()
-                }
+                let new = Int(self.petAccumulator)
+                data.totalFartCount += new
+                data.lifetimeFarts += new
+                self.petAccumulator -= Double(new)
+                self.triggerPoopRainOnAutoFart(producedAmount: new)
             }
         }
     }
     
     func triggerPoopRainOnAutoFart(producedAmount: Int) {
-        let conversionFactor = 50
-        let maxPoopsToGenerate = 15
-        
-        var numPoops = producedAmount / conversionFactor
-        
-        if producedAmount > 0 && numPoops == 0 {
-            numPoops = 1
-        }
-        
-        numPoops = min(numPoops, maxPoopsToGenerate)
-        
-        if numPoops > 0 {
-            self.generatePoopRain(count: numPoops)
-        }
+        let num = min(max(producedAmount / 50, 1), 15)
+        self.generatePoopRain(count: num)
     }
-    
     
     func generatePoopRain(count: Int) {
-        let screenWidth = UIScreen.main.bounds.width
-        let screenHeight = UIScreen.main.bounds.height
-        
+        let screen = UIScreen.main.bounds
         for _ in 0..<count {
-            let newPoop = FallingPoop(
-                x: CGFloat.random(in: 0...screenWidth),
-                y: CGFloat.random(in: -screenHeight / 2 ... 0), // Commence au-dessus
-                size: CGFloat.random(in: 15...35),
-                rotation: .degrees(Double.random(in: -180...180)),
-                duration: Double.random(in: 5.0...10.0) // Chute lente à modérée
+            let p = FallingPoop(
+                x: .random(in: 0...screen.width),
+                y: .random(in: -screen.height/2...0),
+                size: .random(in: 15...35),
+                rotation: .degrees(.random(in: -180...180)),
+                duration: .random(in: 5...10)
             )
-            // Ajouter avec un délai pour éviter l'encombrement instantané
             DispatchQueue.main.asyncAfter(deadline: .now() + Double.random(in: 0...0.5)) {
-                self.fallingPoops.append(newPoop)
+                self.fallingPoops.append(p)
             }
         }
     }
     
-    /**
-     Démarre le timer pour faire chuter les particules et les nettoyer.
-     */
     func startFallingPoopTimer() {
         self.fallingPoopTimer?.invalidate()
-        
-        let updateRate = 1.0 / 30.0 // Mettre à jour 30 fois par seconde (30 FPS)
-        let speedFactor: CGFloat = 50.0 // Vitesse de base en points/seconde
-        
-        self.fallingPoopTimer = Timer.scheduledTimer(withTimeInterval: updateRate, repeats: true) { _ in
-            
-            let screenHeight = UIScreen.main.bounds.height
-            
-            // Mettre à jour la position de chaque particule
-            for index in self.fallingPoops.indices {
-                
-                let poop = self.fallingPoops[index]
-                
-                // Calcul du déplacement vertical basé sur la durée et la vitesse
-                let travel = CGFloat(speedFactor / poop.duration) * CGFloat(updateRate) * 100 // Ajustement
-                
-                self.fallingPoops[index].y += travel
-                
+        self.fallingPoopTimer = Timer.scheduledTimer(withTimeInterval: 1/30, repeats: true) { _ in
+            for i in self.fallingPoops.indices {
+                self.fallingPoops[i].y += (50 / self.fallingPoops[i].duration) * (1/30) * 100
             }
-            
-            // Nettoyer les particules qui sont sorties de l'écran
-            self.fallingPoops.removeAll { $0.y > screenHeight * 1.5 }
+            self.fallingPoops.removeAll { $0.y > UIScreen.main.bounds.height * 1.5 }
         }
     }
-    
-} // FIN DE ContentView
+}
 
-// Composant pour les boutons de navigation (Icône seule)
+// --- STRUCTURE NAV ---
 struct NavButton: View {
     let icon: String
     let action: () -> Void
     let color: Color
-    
     var body: some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.title2)
-                .padding(.vertical, 8)
+                .font(.title3)
                 .frame(maxWidth: .infinity)
-                .contentShape(Rectangle())
                 .foregroundColor(color)
         }
     }

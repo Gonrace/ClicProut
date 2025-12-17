@@ -27,7 +27,7 @@ enum ItemCategory: String, Codable {
 struct ShopItem: Identifiable, Codable {
     // Si vous voulez conserver UUID, vous devez l'initialiser dans la création d'objet.
     // Pour simplifier, nous utilisons le nom comme ID unique dans les calculs.
-    let id = UUID() // Initialisation directe pour Identifiable
+    var id = UUID()
     let name: String
     let description: String
     let baseCost: Int

@@ -2,32 +2,32 @@ import Foundation
 import FirebaseDatabase
 import Combine
 
-
-// Assurez-vous que cette URL correspond EXACTEMENT à celle de votre erreur/console Firebase !
+// URL de la base de données Firebase (Région Europe-West1)
 let FIREBASE_DATABASE_URL = "https://clicprout-default-rtdb.europe-west1.firebasedatabase.app"
 
-// Structure pour le classement
+// MARK: - STRUCTURES DE DONNÉES
 struct LeaderboardEntry: Identifiable, Decodable {
     let id: String
     let username: String
     let score: Int
 }
 
+/// Gère toutes les interactions avec Firebase (Classement et PvP)
 class GameManager: ObservableObject {
     
-    // CORRECTION: La référence 'db' est maintenant la référence principale non modifiable
-    private let db = Database.database().reference()
-    private let databaseRef: DatabaseReference // Référence spécifique au classement
+    // Références Firebase
+    private let db = Database.database().reference() // Référence racine
+    private let databaseRef: DatabaseReference       // Référence vers le noeud "leaderboard"
 
-    // --- PROPRIÉTÉS PUBLIÉES ---
     @Published var username: String = "Inconnu"
     @Published var leaderboard: [LeaderboardEntry] = []
     
-    // NOUVEAU : Handle pour les observateurs en temps réel
+    // Handles pour gérer les écouteurs en temps réel (permet de les arrêter proprement)
     private var leaderboardHandle: DatabaseHandle?
-    private var attacksHandle: DatabaseHandle? // Handle pour l'observateur d'attaques
+    private var attacksHandle: DatabaseHandle?
     
-    // --- ID Utilisateur (Unique au joueur) ---
+    // MARK: - GESTION DE L'IDENTIFIANT UNIQUE
+    /// Identifiant unique de l'appareil sauvegardé dans UserDefaults
     var userID: String {
         if let id = UserDefaults.standard.string(forKey: "userID") {
             return id
@@ -37,16 +37,15 @@ class GameManager: ObservableObject {
         return newID
     }
     
-    // --- Initialisation ---
+    // MARK: - INITIALISATION
     init() {
-        // CORRECTION: Utiliser l'URL spécifique pour la référence de base
+        // Initialisation de la connexion avec l'URL spécifique
         Database.database().reference(fromURL: FIREBASE_DATABASE_URL).observeSingleEvent(of: .value) { _ in }
         
-        // La référence au classement
+        // On pointe spécifiquement sur le noeud "leaderboard"
         self.databaseRef = Database.database(url: FIREBASE_DATABASE_URL).reference().child("leaderboard")
         
-        _ = self.userID
-        
+        // Chargement ou création du pseudo
         if let savedUsername = UserDefaults.standard.string(forKey: "username") {
             self.username = savedUsername
         } else {
@@ -61,8 +60,9 @@ class GameManager: ObservableObject {
         stopObservingIncomingAttacks()
     }
     
-    // --- FONCTIONS DE GESTION DU PROFIL ET DU CLASSEMENT (Inchagées) ---
+    // MARK: - GESTION DU PROFIL
     
+    /// Modifie le pseudo et met à jour le classement Firebase
     func saveNewUsername(_ newName: String, lifetimeScore: Int) {
         let trimmedName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedName.isEmpty else { return }
@@ -73,6 +73,7 @@ class GameManager: ObservableObject {
         self.saveLifetimeScore(lifetimeScore: lifetimeScore)
     }
 
+    /// Sauvegarde le score à vie de l'utilisateur sur Firebase
     func saveLifetimeScore(lifetimeScore: Int) {
         let entry: [String: Any] = [
             "username": self.username,
@@ -81,14 +82,18 @@ class GameManager: ObservableObject {
         
         databaseRef.child(userID).setValue(entry) { error, _ in
             if let error = error {
-                print("Erreur Firebase: Échec de la sauvegarde du score à vie: \(error.localizedDescription)")
+                print("Erreur Firebase Score: \(error.localizedDescription)")
             }
         }
     }
     
+    // MARK: - LOGIQUE DU CLASSEMENT
+    
+    /// Écoute les changements du classement en temps réel
     func startObservingLeaderboard() {
         stopObservingLeaderboard()
         
+        // On récupère les 100 meilleurs scores
         let query = databaseRef.queryOrdered(byChild: "score").queryLimited(toLast: 100)
         
         leaderboardHandle = query.observe(.value) { snapshot in
@@ -106,10 +111,8 @@ class GameManager: ObservableObject {
                 }
             }
             
+            // Tri du plus grand au plus petit
             self.leaderboard = fetchedEntries.sorted { $0.score > $1.score }
-            
-        } withCancel: { error in
-            print("Erreur Firebase: Échec de l'observation du classement: \(error.localizedDescription)")
         }
     }
     
@@ -120,15 +123,11 @@ class GameManager: ObservableObject {
         }
     }
     
-    // --- NOUVEAU : FONCTIONS PVP (Déplacées de l'extension) ---
+    // MARK: - LOGIQUE PVP (ATTAQUES)
 
-    /// Envoie une attaque à un joueur cible via Firebase.
+    /// Envoie une attaque à un autre joueur
     func sendAttack(targetUserID: String, item: ShopItem, senderUsername: String) {
-        
-        guard let attackID = item.effectID else {
-            print("Erreur: L'objet Perturbateur n'a pas d'effectID.")
-            return
-        }
+        guard let attackID = item.effectID else { return }
 
         let remoteAttack = RemoteAttack(
             attackID: attackID,
@@ -137,64 +136,60 @@ class GameManager: ObservableObject {
             durationMinutes: item.durationMinutes
         )
 
-        // Conversion en dictionnaire pour Firebase (via extension Encodable)
-        guard let attackData = remoteAttack.toDictionary() else {
-            print("Erreur: Impossible de sérialiser l'attaque.")
-            return
-        }
+        // Conversion en dictionnaire pour Firebase
+        guard let attackData = remoteAttack.toDictionary() else { return }
 
-        // Chemin de la base de données cible: users/{targetUserID}/attacks/{uniqueKey}
+        // On écrit dans le dossier 'attacks' de la victime
         let attackPath = "users/\(targetUserID)/attacks"
         
-        // Utilisation de la référence de base 'db'
         db.child(attackPath).childByAutoId().setValue(attackData) { error, _ in
             if let error = error {
-                print("Erreur Firebase lors de l'envoi de l'attaque: \(error.localizedDescription)")
+                print("Erreur envoi attaque: \(error.localizedDescription)")
             } else {
-                print("Attaque \(attackID) envoyée avec succès à \(targetUserID)")
+                print("Attaque \(item.name) envoyée à \(targetUserID)")
             }
         }
     }
 
-    /// Lance l'observateur pour écouter les attaques reçues par l'utilisateur local.
+    /// Écoute les attaques qui arrivent sur notre propre compte
     func startObservingIncomingAttacks(data: GameData) {
-        stopObservingIncomingAttacks() // S'assurer qu'un seul observateur est actif
+        stopObservingIncomingAttacks()
         
-        // Le chemin d'écoute est le nœud 'attacks' de l'utilisateur local
         let attackPath = "users/\(self.userID)/attacks"
         
-        // Observez les enfants ajoutés pour détecter les nouvelles attaques
+        // .childAdded permet de détecter chaque nouvelle attaque séparément
         attacksHandle = db.child(attackPath).observe(.childAdded) { snapshot in
             
-            // 1. Désérialiser les données
+            // 1. Décodage de l'attaque reçue
             guard let value = snapshot.value as? [String: Any],
                   let jsonData = try? JSONSerialization.data(withJSONObject: value),
                   let incomingAttack = try? JSONDecoder().decode(RemoteAttack.self, from: jsonData)
-            else {
-                print("Erreur: Impossible de décoder l'attaque entrante.")
-                return
-            }
+            else { return }
             
-            // 2. Appliquer l'effet via GameData (la logique de défense est dans GameData)
-            let success = data.applyAttack(effectID: incomingAttack.attackID,
-                                           duration: incomingAttack.durationMinutes)
+            // On cherche le nom de l'arme dans la boutique pour l'afficher dans l'alerte
+            let weaponName = standardShopItems.first(where: { $0.effectID == incomingAttack.attackID })?.name ?? "Attaque mystère"
+            
+            // 2. Application de l'effet dans GameData
+            // On passe maintenant le pseudo de l'attaquant et le nom de l'arme
+            let success = data.applyAttack(
+                effectID: incomingAttack.attackID,
+                duration: incomingAttack.durationMinutes,
+                attackerName: incomingAttack.senderUsername,
+                weaponName: weaponName
+            )
             
             if success {
-                print("Attaque reçue : \(incomingAttack.attackID) de \(incomingAttack.senderUsername). Effet appliqué.")
-                // TO DO: Déclencher une notification visuelle ou sonore.
-            } else {
-                print("Attaque bloquée par la défense locale.")
+                print("🔥 \(incomingAttack.senderUsername) vous a attaqué avec \(weaponName) !")
             }
             
-            // 3. IMPORTANT : Supprimer l'attaque du serveur après l'avoir traitée localement
-            // (Ceci empêche que l'attaque soit appliquée à chaque redémarrage de l'app)
+            // 3. Nettoyage : On supprime l'attaque de Firebase une fois reçue
+            // pour ne pas qu'elle se redéclenche à chaque ouverture de l'app.
             self.db.child(attackPath).child(snapshot.key).removeValue()
         }
     }
     
     func stopObservingIncomingAttacks() {
         if let handle = attacksHandle {
-            // Remarque: il n'y a pas d'URL spécifique ici car nous utilisons la référence de base 'db'
             db.child("users/\(self.userID)/attacks").removeObserver(withHandle: handle)
             attacksHandle = nil
         }

@@ -21,9 +21,7 @@ struct InventoryView: View {
                 item.category == .production ||
                 item.category == .amelioration ||
                 item.category == .outil ||
-                item.category == .defense ||
-                item.category == .jalonNarratif ||
-                item.category == .perturbateur
+                item.category == .jalonNarratif
             )
             return data.itemLevels[item.name, default: 0] > 0 && isFunctional
         }
