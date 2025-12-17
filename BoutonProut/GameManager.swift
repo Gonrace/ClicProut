@@ -16,13 +16,13 @@ struct LeaderboardEntry: Identifiable, Decodable {
 class GameManager: ObservableObject {
     
     // Références Firebase
-    private let db = Database.database().reference() // Référence racine
-    private let databaseRef: DatabaseReference       // Référence vers le noeud "leaderboard"
+    private let db = Database.database(url: FIREBASE_DATABASE_URL).reference()
+    private let leaderboardRef: DatabaseReference
 
     @Published var username: String = "Inconnu"
     @Published var leaderboard: [LeaderboardEntry] = []
     
-    // Handles pour gérer les écouteurs en temps réel (permet de les arrêter proprement)
+    // Handles pour gérer les écouteurs en temps réel
     private var leaderboardHandle: DatabaseHandle?
     private var attacksHandle: DatabaseHandle?
     
@@ -39,11 +39,8 @@ class GameManager: ObservableObject {
     
     // MARK: - INITIALISATION
     init() {
-        // Initialisation de la connexion avec l'URL spécifique
-        Database.database().reference(fromURL: FIREBASE_DATABASE_URL).observeSingleEvent(of: .value) { _ in }
-        
-        // On pointe spécifiquement sur le noeud "leaderboard"
-        self.databaseRef = Database.database(url: FIREBASE_DATABASE_URL).reference().child("leaderboard")
+        // On pointe sur le noeud "leaderboard"
+        self.leaderboardRef = db.child("leaderboard")
         
         // Chargement ou création du pseudo
         if let savedUsername = UserDefaults.standard.string(forKey: "username") {
@@ -80,9 +77,9 @@ class GameManager: ObservableObject {
             "score": lifetimeScore
         ]
         
-        databaseRef.child(userID).setValue(entry) { error, _ in
+        leaderboardRef.child(userID).setValue(entry) { error, _ in
             if let error = error {
-                print("Erreur Firebase Score: \(error.localizedDescription)")
+                print("❌ Erreur Firebase Score: \(error.localizedDescription)")
             }
         }
     }
@@ -94,13 +91,13 @@ class GameManager: ObservableObject {
         stopObservingLeaderboard()
         
         // On récupère les 100 meilleurs scores
-        let query = databaseRef.queryOrdered(byChild: "score").queryLimited(toLast: 100)
+        let query = leaderboardRef.queryOrdered(byChild: "score").queryLimited(toLast: 100)
         
         leaderboardHandle = query.observe(.value) { snapshot in
             var fetchedEntries: [LeaderboardEntry] = []
             
             guard let value = snapshot.value as? [String: [String: Any]] else {
-                self.leaderboard = []
+                DispatchQueue.main.async { self.leaderboard = [] }
                 return
             }
             
@@ -111,14 +108,16 @@ class GameManager: ObservableObject {
                 }
             }
             
-            // Tri du plus grand au plus petit
-            self.leaderboard = fetchedEntries.sorted { $0.score > $1.score }
+            // Mise à jour de la liste triée sur le fil principal
+            DispatchQueue.main.async {
+                self.leaderboard = fetchedEntries.sorted { $0.score > $1.score }
+            }
         }
     }
     
     func stopObservingLeaderboard() {
         if let handle = leaderboardHandle {
-            databaseRef.removeObserver(withHandle: handle)
+            leaderboardRef.removeObserver(withHandle: handle)
             leaderboardHandle = nil
         }
     }
@@ -139,51 +138,58 @@ class GameManager: ObservableObject {
         // Conversion en dictionnaire pour Firebase
         guard let attackData = remoteAttack.toDictionary() else { return }
 
-        // On écrit dans le dossier 'attacks' de la victime
+        // Chemin : users/ID_CIBLE/attacks
         let attackPath = "users/\(targetUserID)/attacks"
         
         db.child(attackPath).childByAutoId().setValue(attackData) { error, _ in
             if let error = error {
-                print("Erreur envoi attaque: \(error.localizedDescription)")
+                print("❌ Erreur envoi attaque: \(error.localizedDescription)")
             } else {
-                print("Attaque \(item.name) envoyée à \(targetUserID)")
+                print("🚀 Attaque \(item.name) envoyée avec succès !")
             }
         }
     }
 
-    /// Écoute les attaques qui arrivent sur notre propre compte
+    /// Écoute les attaques entrantes (Seulement si l'Acte 2 est débloqué)
     func startObservingIncomingAttacks(data: GameData) {
         stopObservingIncomingAttacks()
         
-        let attackPath = "users/\(self.userID)/attacks"
+        // SÉCURITÉ : Si on n'a pas débloqué la méchanceté (Acte 2), on n'écoute rien.
+        // Cela évite de recevoir des malus alors qu'on est encore "bébé".
+        guard data.isActeUnlocked(2) else {
+            print("🛡️ Mode Pacifique : Écouteur d'attaques désactivé.")
+            return
+        }
         
-        // .childAdded permet de détecter chaque nouvelle attaque séparément
-        attacksHandle = db.child(attackPath).observe(.childAdded) { snapshot in
+        let attackPath = "users/\(self.userID)/attacks"
+        print("📡 Écoute des attaques sur : \(attackPath)")
+        
+        // On écoute chaque nouvel ajout dans le dossier attacks
+        attacksHandle = db.child(attackPath).observe(.childAdded) { [weak self] snapshot in
+            guard let self = self else { return }
             
-            // 1. Décodage de l'attaque reçue
+            // 1. Décodage sécurisé de l'objet Firebase
             guard let value = snapshot.value as? [String: Any],
                   let jsonData = try? JSONSerialization.data(withJSONObject: value),
                   let incomingAttack = try? JSONDecoder().decode(RemoteAttack.self, from: jsonData)
             else { return }
             
-            // On cherche le nom de l'arme dans la boutique pour l'afficher dans l'alerte
-            let weaponName = standardShopItems.first(where: { $0.effectID == incomingAttack.attackID })?.name ?? "Attaque mystère"
+            // 2. Recherche du nom de l'arme pour l'UI
+            let weaponName = data.allItems.first(where: { $0.effectID == incomingAttack.attackID })?.name ?? "Attaque mystère"
             
-            // 2. Application de l'effet dans GameData
-            // On passe maintenant le pseudo de l'attaquant et le nom de l'arme
-            let success = data.applyAttack(
-                effectID: incomingAttack.attackID,
-                duration: incomingAttack.durationMinutes,
-                attackerName: incomingAttack.senderUsername,
-                weaponName: weaponName
-            )
-            
-            if success {
-                print("🔥 \(incomingAttack.senderUsername) vous a attaqué avec \(weaponName) !")
+            // 3. Application de l'effet dans le moteur de jeu
+            DispatchQueue.main.async {
+                data.applyAttack(
+                    effectID: incomingAttack.attackID,
+                    duration: incomingAttack.durationMinutes,
+                    attackerName: incomingAttack.senderUsername,
+                    weaponName: weaponName
+                )
             }
-            
-            // 3. Nettoyage : On supprime l'attaque de Firebase une fois reçue
-            // pour ne pas qu'elle se redéclenche à chaque ouverture de l'app.
+
+            print("🔥 ALERTE : \(incomingAttack.senderUsername) a utilisé \(weaponName) sur vous !")
+
+            // 4. Nettoyage immédiat : On supprime l'attaque de Firebase pour ne pas la recevoir deux fois
             self.db.child(attackPath).child(snapshot.key).removeValue()
         }
     }

@@ -1,8 +1,7 @@
 import SwiftUI
 
-// NOTE: Nécessite ShopModels.swift pour les structures ShopItem et ItemCategory.
-//       Nécessite StyleConstants.swift pour AppStyle et CustomTitleBar.
-
+// MARK: - VUE INVENTAIRE
+// Cette vue regroupe les objets possédés par le joueur, classés par Acte (âge).
 struct InventoryView: View {
     @ObservedObject var data: GameData
     @Environment(\.dismiss) var dismiss
@@ -10,11 +9,11 @@ struct InventoryView: View {
     @State private var selectedTab: InventoryCategory = .functional
     
     enum InventoryCategory: String {
-        case functional = "Outils & Bâtiments"
-        case cosmetics = "Cosmétiques"
+        case functional = "Ma Progression"
+        case cosmetics = "Mon Style"
     }
     
-    // Filtre les objets possédés fonctionnels (Inclut Défense, Attaque, Jalon)
+    // Filtre les objets possédés fonctionnels (Hors Combat)
     var ownedFunctionalItems: [ShopItem] {
         return data.allItems.filter { item in
             let isFunctional = (
@@ -23,6 +22,7 @@ struct InventoryView: View {
                 item.category == .outil ||
                 item.category == .jalonNarratif
             )
+            // On vérifie que l'item est possédé ET qu'il fait partie des catégories ci-dessus
             return data.itemLevels[item.name, default: 0] > 0 && isFunctional
         }
     }
@@ -40,9 +40,10 @@ struct InventoryView: View {
             AppStyle.secondaryBackground.edgesIgnoringSafeArea(.all)
             
             VStack(spacing: 0) {
+                // Barre de titre personnalisée
                 CustomTitleBar(title: "Mes Objets 🗃️", onDismiss: { dismiss() })
                 
-                // SÉLECTION D'ONGLET
+                // Sélecteur d'onglet (Progression vs Cosmétiques)
                 Picker("Type d'Inventaire", selection: $selectedTab) {
                     Text(InventoryCategory.functional.rawValue).tag(InventoryCategory.functional)
                     Text(InventoryCategory.cosmetics.rawValue).tag(InventoryCategory.cosmetics)
@@ -52,77 +53,41 @@ struct InventoryView: View {
                 .padding(.bottom, AppStyle.defaultPadding)
                 
                 ScrollView {
-                    VStack(alignment: .leading, spacing: AppStyle.defaultPadding) {
+                    VStack(alignment: .leading, spacing: 25) {
                         
                         if selectedTab == .functional {
                             
                             if !ownedFunctionalItems.isEmpty {
-                                
-                                // 1. Bâtiments (PPS)
-                                                        InventorySection(title: "Bâtiments (Auto-Pets)") {
-                                                            ForEach(ownedFunctionalItems.filter { $0.category == .production }, id: \.id) { item in
-                                                                InventoryRow(item: item, data: data)
-                                                            }
-                                                        }
-                                                        
-                                                        // 2. Outils de Clic (PPC)
-                                                        InventorySection(title: "Outils de Clic (PPC)") {
-                                                            ForEach(ownedFunctionalItems.filter { $0.category == .outil }, id: \.id) { item in
-                                                                InventoryRow(item: item, data: data)
-                                                            }
-                                                        }
-                                                        
-                                                        // 3. Améliorations (Bonus Passifs)
-                                                        InventorySection(title: "Améliorations Multiplicatrices") {
-                                                            ForEach(ownedFunctionalItems.filter { $0.category == .amelioration }, id: \.id) { item in
-                                                                InventoryRow(item: item, data: data)
-                                                            }
-                                                        }
-                                                        
-                                                        // 4. Défense (Protection)
-                                                        InventorySection(title: "Défense (Anti-Attaque)") {
-                                                            ForEach(ownedFunctionalItems.filter { $0.category == .defense }, id: \.id) { item in
-                                                                InventoryRow(item: item, data: data)
-                                                            }
-                                                        }
-                                                        
-                                                        // 5. Attaque / Perturbateur
-                                                        InventorySection(title: "Armes & Perturbateurs (PvP)") {
-                                                            ForEach(ownedFunctionalItems.filter { $0.category == .perturbateur }, id: \.id) { item in
-                                                                InventoryRow(item: item, data: data)
-                                                            }
-                                                        }
-                                                        
-                                                        // 6. Jalons Narratifs
-                                                        InventorySection(title: "Progression & Jalons de Vie") {
-                                                            ForEach(ownedFunctionalItems.filter { $0.category == .jalonNarratif }, id: \.id) { item in
-                                                                InventoryRow(item: item, data: data)
-                                                            }
-                                                        }
-                                
+                                // On boucle sur les 5 actes pour organiser l'inventaire par "âge"
+                                ForEach(1...5, id: \.self) { acteNum in
+                                    let itemsInActe = ownedFunctionalItems.filter { $0.acte == acteNum }
+                                    
+                                    // On n'affiche la section que si le joueur possède des objets de cet acte
+                                    if !itemsInActe.isEmpty {
+                                        InventorySection(title: acteTitle(for: acteNum)) {
+                                            ForEach(itemsInActe, id: \.name) { item in
+                                                InventoryRow(item: item, data: data)
+                                            }
+                                        }
+                                    }
+                                }
                             } else {
-                                Text("Vous n'avez pas encore d'outils de production.")
+                                Text("Vous n'avez pas encore d'objets de progression.")
                                     .inventoryEmptyText()
                             }
                             
                         } else if selectedTab == .cosmetics {
-                            
+                            // Affichage des cosmétiques possédés
                             if !ownedCosmeticItems.isEmpty {
-                                
-                                InventorySection(title: "Personnalisation") {
-                                    ForEach(ownedCosmeticItems, id: \.id) { item in
+                                InventorySection(title: "Apparence & Sons") {
+                                    ForEach(ownedCosmeticItems, id: \.name) { item in
                                         CosmeticRow(item: item, data: data)
                                     }
                                 }
                             } else {
-                                Text("Vous n'avez pas encore débloqué de cosmétiques.")
+                                Text("Aucun cosmétique débloqué.")
                                     .inventoryEmptyText()
                             }
-                        }
-                        
-                        if ownedFunctionalItems.isEmpty && ownedCosmeticItems.isEmpty {
-                            Text("Votre inventaire est entièrement vide. Achetez quelque chose à la Proutique !")
-                                .inventoryEmptyText()
                         }
                     }
                     .padding(AppStyle.defaultPadding)
@@ -130,19 +95,21 @@ struct InventoryView: View {
             }
         }
     }
-}
-
-// --- STRUCTURES D'AIDE pour l'inventaire ---
-
-// Helper pour le texte vide (réduction de la redondance)
-extension View {
-    func inventoryEmptyText() -> some View {
-        self
-        .foregroundColor(AppStyle.secondaryTextColor)
-        .padding(.top, AppStyle.defaultPadding)
-        .frame(maxWidth: .infinity, alignment: .center)
+    
+    // Helper pour transformer le numéro d'acte en nom narratif
+    func acteTitle(for acte: Int) -> String {
+        switch acte {
+            case 1: return "Acte I : Bébé Merde 👶"
+            case 2: return "Acte II : L'Âge Ingrat 😈"
+            case 3: return "Acte III : Le Loveur ❤️"
+            case 4: return "Acte IV : Monsieur Pro 💼"
+            case 5: return "Acte V : La Retraite 👴"
+            default: return "Acte Inconnu"
+        }
     }
 }
+
+// MARK: - STRUCTURES D'AIDE
 
 struct InventorySection<Content: View>: View {
     let title: String
@@ -165,19 +132,14 @@ struct InventorySection<Content: View>: View {
                 content
             }
             .background(AppStyle.listRowBackground)
-            .cornerRadius(10)
+            .cornerRadius(12)
         }
     }
 }
 
-// Rangée pour les objets fonctionnels (Affiche le niveau/quantité)
 struct InventoryRow: View {
     let item: ShopItem
     @ObservedObject var data: GameData
-    
-    var currentLevel: Int {
-        return data.itemLevels[item.name, default: 0]
-    }
     
     var body: some View {
         HStack {
@@ -194,30 +156,26 @@ struct InventoryRow: View {
             
             Spacer()
             
-            // Affichage du statut
+            // Affichage du statut simplifié
             if item.category == .production || item.category == .outil {
-                Text("Niv: \(currentLevel)")
+                Text("Lv. \(data.itemLevels[item.name, default: 0])")
                     .fontWeight(.bold)
                     .foregroundColor(AppStyle.accentColor)
-            } else if item.category == .amelioration || item.category == .defense || item.category == .jalonNarratif {
-                Text("Acheté ✅")
-                    .foregroundColor(AppStyle.positiveColor)
-            } else if item.category == .perturbateur {
-                 Text("DISPONIBLE ⚔️")
-                    .foregroundColor(.red)
+            } else {
+                Text("Acquis ✅")
+                    .font(.caption)
+                    .foregroundColor(.green)
             }
         }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 10)
-        .background(AppStyle.listRowBackground.opacity(0.8))
+        .padding(12)
+        .background(AppStyle.listRowBackground)
     }
 }
 
-// Rangée pour les cosmétiques (Permet d'activer/désactiver)
 struct CosmeticRow: View {
     let item: ShopItem
     @ObservedObject var data: GameData
-    @State private var isActive: Bool = true // Placeholder
+    @State private var isActive: Bool = true // Ici tu pourras lier à la logique de skin de GameData
     
     var body: some View {
         HStack {
@@ -227,7 +185,6 @@ struct CosmeticRow: View {
                 Text(item.name)
                     .font(.headline)
                     .foregroundColor(.white)
-                // CORRECTION : Utilisation de item.category (RawValue est le nom lisible)
                 Text(item.category.rawValue)
                     .font(.caption)
                     .foregroundColor(.orange)
@@ -235,13 +192,21 @@ struct CosmeticRow: View {
             
             Spacer()
             
-            // Logique d'activation
             Toggle("", isOn: $isActive)
                 .labelsHidden()
                 .tint(AppStyle.accentColor)
         }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 10)
-        .background(AppStyle.listRowBackground.opacity(0.8))
+        .padding(12)
+        .background(AppStyle.listRowBackground)
+    }
+}
+
+// Helper pour le style des messages vides
+extension View {
+    func inventoryEmptyText() -> some View {
+        self
+        .foregroundColor(AppStyle.secondaryTextColor)
+        .padding(.top, 40)
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 }

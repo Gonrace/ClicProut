@@ -5,7 +5,6 @@ struct LeaderboardView: View {
     @ObservedObject var data: GameData
     @Environment(\.dismiss) var dismiss
     
-    // On récupère TOUS les perturbateurs possédés pour le menu
     var ownedAttacks: [ShopItem] {
         return data.allItems.filter { item in
             item.category == .perturbateur && data.itemLevels[item.name, default: 0] > 0
@@ -20,59 +19,67 @@ struct LeaderboardView: View {
                 CustomTitleBar(title: "Classement 🏆", onDismiss: { dismiss() })
                 
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 10) {
-                        // En-tête
+                    VStack(spacing: 8) {
+                        // --- EN-TÊTE FIXE ---
                         HStack {
-                            Text("Rang").frame(width: 40, alignment: .leading)
-                            Text("Nom du Prouteur")
-                            Spacer()
-                            Text("Score")
+                            Text("Rang").frame(width: 50, alignment: .leading)
+                            Text("Prouteur").frame(maxWidth: .infinity, alignment: .leading)
+                            Text("Score").frame(width: 80, alignment: .trailing)
                         }
-                        .font(AppStyle.bodyFont).fontWeight(.bold)
-                        .foregroundColor(AppStyle.accentColor).padding(.horizontal, 10)
+                        .font(.caption).fontWeight(.black)
+                        .foregroundColor(AppStyle.accentColor.opacity(0.8))
+                        .padding(.horizontal, 15)
+                        .padding(.bottom, 5)
                         
                         if gameManager.leaderboard.isEmpty {
-                            Text("Chargement...").foregroundColor(.gray).padding().frame(maxWidth: .infinity)
+                            VStack(spacing: 15) {
+                                ProgressView()
+                                Text("Récupération des champions...").font(.caption).foregroundColor(.gray)
+                            }
+                            .padding(.top, 50)
                         } else {
                             ForEach(gameManager.leaderboard.indices, id: \.self) { index in
                                 let entry = gameManager.leaderboard[index]
+                                let isMe = entry.id == gameManager.userID
                                 
-                                HStack {
-                                    Text("#\(index + 1)").font(.headline).frame(width: 30, alignment: .leading)
+                                HStack(spacing: 10) {
+                                    // 1. RANG
+                                    Text("#\(index + 1)")
+                                        .font(.system(.subheadline, design: .monospaced))
+                                        .fontWeight(.bold)
+                                        .frame(width: 50, alignment: .leading)
+                                        .foregroundColor(isMe ? .black : AppStyle.accentColor)
                                     
+                                    // 2. NOM (Prend l'espace restant)
                                     Text(entry.username)
-                                        .fontWeight(entry.id == gameManager.userID ? .heavy : .regular)
-                                        .foregroundColor(entry.id == gameManager.userID ? AppStyle.accentColor : .white)
+                                        .font(.subheadline)
+                                        .fontWeight(isMe ? .black : .medium)
+                                        .lineLimit(1) // Évite le retour à la ligne
+                                        .foregroundColor(isMe ? .black : .white)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
                                     
-                                    Spacer()
-                                    
-                                    // UN SEUL BOUTON ICI : Le Menu d'attaque
-                                    if !ownedAttacks.isEmpty && entry.id != gameManager.userID {
-                                        Menu {
-                                            ForEach(ownedAttacks, id: \.id) { attack in
-                                                Button {
-                                                    gameManager.sendAttack(
-                                                        targetUserID: entry.id,
-                                                        item: attack,
-                                                        senderUsername: gameManager.username
-                                                    )
-                                                    data.itemLevels[attack.name] = 0
-                                                } label: {
-                                                    Label("\(attack.name) (\(attack.emoji))", systemImage: "bolt.fill")
-                                                }
-                                            }
-                                        } label: {
-                                            Text("Attaquer ⚔️")
-                                                .font(.caption).fontWeight(.bold)
-                                                .padding(6).background(Color.red).foregroundColor(.white).cornerRadius(8)
-                                        }
+                                    // 3. ACTIONS (Si disponible)
+                                    if !ownedAttacks.isEmpty && !isMe {
+                                        attackMenu(for: entry)
                                     }
                                     
-                                    Text("\(entry.score)").font(.system(.body, design: .monospaced)).fontWeight(.bold)
+                                    // 4. SCORE
+                                    Text("\(entry.score)")
+                                        .font(.system(.subheadline, design: .monospaced))
+                                        .fontWeight(.bold)
+                                        .frame(width: 80, alignment: .trailing)
+                                        .foregroundColor(isMe ? .black : .white)
                                 }
-                                .padding(.vertical, 8).padding(.horizontal, 10)
-                                .background(entry.id == gameManager.userID ? AppStyle.accentColor.opacity(0.3) : AppStyle.listRowBackground)
-                                .cornerRadius(5)
+                                .padding(.vertical, 12)
+                                .padding(.horizontal, 15)
+                                // On utilise une couleur pleine si c'est nous, sinon le fond de ligne habituel
+                                .background(isMe ? AppStyle.accentColor : AppStyle.listRowBackground)
+                                .cornerRadius(10)
+                                // Petite bordure dorée pour l'utilisateur actuel
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(isMe ? Color.white.opacity(0.5) : Color.clear, lineWidth: 1)
+                                )
                             }
                         }
                     }
@@ -81,6 +88,31 @@ struct LeaderboardView: View {
                 .onAppear { gameManager.startObservingLeaderboard() }
                 .onDisappear { gameManager.stopObservingLeaderboard() }
             }
+        }
+    }
+    
+    // MARK: - COMPOSANT MENU ATTAQUE
+    @ViewBuilder
+    private func attackMenu(for entry: LeaderboardEntry) -> some View {
+        Menu {
+            ForEach(ownedAttacks, id: \.id) { attack in
+                Button {
+                    gameManager.sendAttack(
+                        targetUserID: entry.id,
+                        item: attack,
+                        senderUsername: gameManager.username
+                    )
+                    data.itemLevels[attack.name] = 0 // Consomme l'objet
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                } label: {
+                    Label("\(attack.name) \(attack.emoji)", systemImage: "bolt.fill")
+                }
+            }
+        } label: {
+            Image(systemName: "bolt.circle.fill")
+                .font(.title3)
+                .foregroundColor(.red)
+                .padding(4)
         }
     }
 }

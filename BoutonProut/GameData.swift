@@ -3,7 +3,7 @@ import Combine
 import Foundation
 
 // NOTE: Ce fichier gère l'état global du jeu, l'économie et la logique de combat.
-// Nécessite : ShopModels.swift, ShopList_Standard.swift, ShopList_Cosmetics.swift
+// Nécessite : ShopModels.swift, ShopList_Standard.swift, ShopList_Cosmetics.swift, ShopList_PvP.swift et CombatLogic.swift
 
 // MARK: - STRUCTURES D'AIDE
 struct ActiveAttackInfo: Identifiable {
@@ -32,7 +32,6 @@ class GameData: ObservableObject {
     
     @Published var petAccumulator: Double = 0.0 // Le réservoir pour les fractions de pets
     
-    
     // MARK: - PROPRIÉTÉS CALCULÉES POUR LE COMBAT
     
     /// Transforme le dictionnaire brut en une liste d'objets faciles à afficher dans CombatView
@@ -53,12 +52,18 @@ class GameData: ObservableObject {
     }
     
     // MARK: - INVENTAIRE ET NIVEAUX
-    @Published var itemLevels: [String: Int] = loadItemLevels() {
-        didSet { saveItemLevels(itemLevels) }
+    // Initialisation au démarrage avec chargement des données sauvegardées
+    @Published var itemLevels: [String: Int] = [:] {
+        didSet { GameData.saveItemLevels(itemLevels) }
     }
     
+    init() {
+        self.itemLevels = GameData.loadItemLevels()
+    }
+    
+    /// Fusion de toutes les listes de la boutique pour la logique de calcul
     var allItems: [ShopItem] {
-        return standardShopItems + cosmeticShopItems
+        return standardShopItems + cosmeticShopItems + pvpShopItems
     }
     
     // MARK: - CALCULS DE PRODUCTION
@@ -84,23 +89,27 @@ class GameData: ObservableObject {
             // 3. Upgrades spécifiques
             if let upgrade = standardShopItems.first(where: { $0.category == .amelioration && $0.requiredItem == item.name }) {
                 if itemLevels[upgrade.name, default: 0] > 0 {
-                    if upgrade.name.contains("Triple") { itemDPS *= 3.0 }
-                    else if upgrade.name.contains("Sauce Piquante") { itemDPS *= 2.0 }
+                    // Gestion des multiplicateurs selon le nom de l'upgrade
+                    if upgrade.name.contains("Triple") || upgrade.name.contains("Blague Beauf") {
+                        itemDPS *= 3.0
+                    } else if upgrade.name.contains("Sauce Piquante") {
+                        itemDPS *= 2.0
+                    }
                 }
             }
+            
+            // Bonus Héritage (Acte IV)
+            if item.name == "Haricot" || item.name == "Tonton Blagueur" {
+                if itemLevels["Héritage", default: 0] > 0 { itemDPS *= 5.0 }
+            }
+            
             totalDPS += itemDPS
         }
         
-        // 4. NETTOYAGE ET APPLICATION DES MALUS PvP
+        // 4. APPLICATION DES MALUS PvP (Lecture seule)
         let now = Date()
-        for (effectID, expiryDate) in activeAttacks {
-            if now >= expiryDate {
-                // L'attaque est finie, on nettoie
-                DispatchQueue.main.async {
-                    self.activeAttacks.removeValue(forKey: effectID)
-                }
-            } else if effectID == "attack_dps_reduction_50" {
-                // Réduction de 50% du PPS global
+        for (effectID, expiryDate) in activeAttacks where expiryDate > now {
+            if effectID == "attack_dps_reduction_50" {
                 globalDPSMultiplier *= 0.5
             }
         }
@@ -123,6 +132,7 @@ class GameData: ObservableObject {
         return Int(power * globalPPCMultiplier)
     }
     
+    /// Taille visuelle du bouton prout selon la richesse
     var calculatedPoopScale: CGFloat {
         let baseSize: CGFloat = 1.0
         let growthFactor = CGFloat(totalFartCount) / 5000.0
@@ -130,95 +140,170 @@ class GameData: ObservableObject {
     }
 
     // MARK: - MOTEUR D'ACHAT
-    
     func attemptPurchase(item: ShopItem) -> Bool {
-        let level = itemLevels[item.name, default: 0]
-        
-        let isSingleLevelItem = (
-            item.category == .amelioration ||
-            item.category == .defense ||
-            item.category == .jalonNarratif ||
-            item.category == .perturbateur ||
-            item.category == .skin ||
-            item.category == .sound ||
-            item.category == .background
-        )
-        
-        let cost: Int
-        if item.category == .production || item.category == .outil {
-            cost = Int(Double(item.baseCost) * pow(1.2, Double(level)))
-        } else {
-            cost = item.baseCost
-        }
-        
-        if isSingleLevelItem && !item.isConsumable && level > 0 { return false }
-        
-        if let req = item.requiredItem, let reqCount = item.requiredItemCount {
-            if itemLevels[req, default: 0] < reqCount { return false }
-        }
-        
-        if item.currency == .pets {
-            guard totalFartCount >= cost else { return false }
-            totalFartCount -= cost
-        } else {
-            guard goldenToiletPaper >= cost else { return false }
-            goldenToiletPaper -= cost
-        }
-        
-        if isSingleLevelItem {
-            itemLevels[item.name] = 1
-        } else {
-            itemLevels[item.name, default: 0] += 1
-        }
-        
-        if item.category == .production {
-            autoFarterUpdateCount += 1
-        }
+            let level = itemLevels[item.name, default: 0]
+            
+            // 1. Logique Consommables (Attaques/Défenses)
+            // On ne peut en acheter qu'un seul à la fois
+            if item.isConsumable && level >= 1 {
+                return false
+            }
+            
+            // 2. Déterminer si l'objet est unique (Amélioration, Skin, etc.)
+            let isSingleLevelItem = (
+                item.category == .amelioration ||
+                item.category == .defense ||
+                item.category == .jalonNarratif ||
+                item.category == .skin ||
+                item.category == .sound ||
+                item.category == .background
+            )
+            
+            // 3. Calcul du coût (Inflation pour prod/outils)
+            let cost: Int
+            if item.category == .production || item.category == .outil {
+                cost = Int(Double(item.baseCost) * pow(1.2, Double(level)))
+            } else {
+                cost = item.baseCost
+            }
+            
+            // 4. Bloquer si déjà possédé et non consommable
+            if isSingleLevelItem && !item.isConsumable && level > 0 { return false }
+            
+            // 5. VÉRIFICATION CRUCIALE DES PRÉ-REQUIS
+            if let req = item.requiredItem, let reqCount = item.requiredItemCount {
+                if itemLevels[req, default: 0] < reqCount {
+                    return false // Empêche l'achat si les 10 objets ne sont pas là
+                }
+            }
+            
+            // 6. Paiement
+            if item.currency == .pets {
+                guard totalFartCount >= cost else { return false }
+                totalFartCount -= cost
+            } else {
+                guard goldenToiletPaper >= cost else { return false }
+                goldenToiletPaper -= cost
+            }
+            
+            // 7. Mise à jour de l'inventaire
+            if isSingleLevelItem {
+                itemLevels[item.name] = 1
+            } else {
+                itemLevels[item.name, default: 0] += 1
+            }
+            
+            if item.category == .production {
+                autoFarterUpdateCount += 1
+            }
 
-        return true
+            return true
+        }
+    // MARK: - SYSTÈME DE COMBAT & DÉFENSE
+    
+    /// Nettoyage des attaques expirées (À appeler via Timer dans GameManager)
+    func updateAttacksState() {
+        let now = Date()
+        let expiredKeys = activeAttacks.filter { $0.value <= now }.map { $0.key }
+        
+        if !expiredKeys.isEmpty {
+            DispatchQueue.main.async {
+                for key in expiredKeys {
+                    self.activeAttacks.removeValue(forKey: key)
+                }
+            }
+        }
+    }
+
+    /// Tente d'utiliser un objet de défense pour contrer une attaque en cours
+    func tryDefend(with item: ShopItem) -> String {
+        // 1. Vérifier si c'est bien une défense
+        guard item.category == .defense, let defenseID = item.effectID else {
+            return "Cet objet n'est pas une défense !"
+        }
+        
+        // 2. Vérifier si le joueur en a en stock
+        guard itemLevels[item.name, default: 0] > 0 else {
+            return "Tu n'as plus de \(item.name) dans ton armoire !"
+        }
+        
+        // --- ACTION : ON CONSOMME L'OBJET SYSTÉMATIQUEMENT ---
+        // Le joueur perd l'objet dès qu'il clique, même s'il se trompe.
+        itemLevels[item.name, default: 0] -= 1
+        
+        // 3. Chercher si cet objet contre une des attaques actives
+        for (activeAttackID, _) in activeAttacks {
+            if CombatLogic.canDefend(attackID: activeAttackID, defenseID: defenseID) {
+                // SUCCÈS : On arrête l'attaque
+                activeAttacks.removeValue(forKey: activeAttackID)
+                return "Défense réussie ! L'attaque a été annulée."
+            }
+        }
+        
+        // 4. ÉCHEC : L'objet est perdu mais l'attaque continue
+        if isUnderAttack {
+            return "Ce n'est pas très efficace... Objet gaspillé !"
+        } else {
+            return "Tu as utilisé ça pour rien, tu n'étais même pas attaqué !"
+        }
     }
     
-    // MARK: - SYSTÈME DE COMBAT
-    
-    func applyAttack(effectID: String, duration: Int, attackerName: String = "Inconnu", weaponName: String = "une attaque") -> Bool {
-        if checkDefense(against: effectID) { return false }
-        
-        self.lastAttackerName = attackerName
-        self.lastAttackWeapon = weaponName
-        
+    /// Applique une attaque reçue (depuis Firebase ou Événement)
+    func applyAttack(effectID: String, duration: Int, attackerName: String = "Inconnu", weaponName: String = "une attaque") {
         let expiryDate = Date().addingTimeInterval(TimeInterval(duration * 60))
         
-        switch effectID {
-        case "attack_dps_reduction_50":
-            activeAttacks[effectID] = expiryDate
-            return true
+        DispatchQueue.main.async {
+            self.lastAttackerName = attackerName
+            self.lastAttackWeapon = weaponName
+            self.activeAttacks[effectID] = expiryDate
             
-        case "attack_loss_t1_10":
-            let currentLevel = itemLevels["Haricot", default: 0]
-            let loss = Int(Double(currentLevel) * 0.10)
-            itemLevels["Haricot"] = max(0, currentLevel - loss)
-            return true
-            
-        default:
-            return false
+            // Effet immédiat pour le vol de T1
+            if effectID == "attack_loss_t1_10" {
+                let currentLevel = self.itemLevels["Haricot", default: 0]
+                let loss = Int(Double(currentLevel) * 0.10)
+                self.itemLevels["Haricot"] = max(0, currentLevel - loss)
+            }
         }
     }
+
+    
+    // DEBLOCAGE DES ACTE
+    func isActeUnlocked(_ acte: Int) -> Bool {
+        if acte == 1 { return true } // L'acte 1 est toujours ouvert
         
-    func checkDefense(against attackID: String) -> Bool {
-        if attackID == "attack_dps_reduction_50" && itemLevels["Bouchon de Fesses", default: 0] > 0 {
-            return true
+        let actePrecedent = acte - 1
+        let itemsDeLActe = allItems.filter { $0.acte == actePrecedent }
+        
+        // On compte combien d'objets l'utilisateur possède au moins au niveau 1
+        let itemsPossedes = itemsDeLActe.filter { itemLevels[$0.name, default: 0] > 0 }
+        
+        let pourcentageCompletion = Double(itemsPossedes.count) / Double(itemsDeLActe.count)
+        
+        return pourcentageCompletion >= 0.90
+    }
+    
+    // BARRE PROGRESSION ACTE
+    var currentActeProgress: Double {
+        // 1. Trouver quel est l'acte actuel (le plus haut débloqué)
+        var currentActe = 1
+        for i in 2...5 {
+            if isActeUnlocked(i) { currentActe = i }
         }
-        if attackID == "attack_loss_t1_10" && itemLevels["Smecta", default: 0] > 0 {
-            return true
-        }
-        return false
+        
+        // 2. Récupérer les items de cet acte
+        let itemsInActe = allItems.filter { $0.acte == currentActe }
+        if itemsInActe.isEmpty { return 0.0 }
+        
+        // 3. Compter combien sont possédés (au moins niveau 1)
+        let ownedCount = itemsInActe.filter { itemLevels[$0.name, default: 0] > 0 }.count
+        
+        // 4. Retourner le ratio
+        return Double(ownedCount) / Double(itemsInActe.count)
     }
     
     // MARK: - DÉBOGAGE ET HELPERS
     
-    /// Reset complet : Score actuel, Inventaire, Monnaie Premium et Score à vie.
     func hardReset() {
-        // 1. Remise à zéro des variables en mémoire (Interface)
         self.totalFartCount = 0
         self.lifetimeFarts = 0
         self.goldenToiletPaper = 0
@@ -226,15 +311,11 @@ class GameData: ObservableObject {
         self.activeAttacks = [:]
         self.petAccumulator = 0.0
         
-        // 2. Nettoyage forcé du stockage physique (UserDefaults)
-        // Cela efface les données même si l'app crash juste après
         let defaults = UserDefaults.standard
         defaults.removeObject(forKey: "TotalFartCount")
         defaults.removeObject(forKey: "LifetimeFarts")
         defaults.removeObject(forKey: "GoldenToiletPaper")
         defaults.removeObject(forKey: "SavedItemLevels")
-        
-        // Synchronisation pour s'assurer que c'est bien écrit sur le disque
         defaults.synchronize()
         
         print("REINITIALISATION TOTALE EFFECTUÉE ⚠️")
@@ -264,19 +345,20 @@ class GameData: ObservableObject {
                 return value > 0 ? "\(item.emoji) \(value)" : nil
             }
     }
-}
 
-// MARK: - PERSISTANCE
-private func saveItemLevels(_ levels: [String: Int]) {
-    if let encoded = try? JSONEncoder().encode(levels) {
-        UserDefaults.standard.set(encoded, forKey: "SavedItemLevels")
+    // MARK: - PERSISTANCE PRIVÉE
+    
+    private static func saveItemLevels(_ levels: [String: Int]) {
+        if let encoded = try? JSONEncoder().encode(levels) {
+            UserDefaults.standard.set(encoded, forKey: "SavedItemLevels")
+        }
     }
-}
 
-private func loadItemLevels() -> [String: Int] {
-    if let data = UserDefaults.standard.data(forKey: "SavedItemLevels"),
-       let decoded = try? JSONDecoder().decode([String: Int].self, from: data) {
-        return decoded
+    private static func loadItemLevels() -> [String: Int] {
+        if let data = UserDefaults.standard.data(forKey: "SavedItemLevels"),
+           let decoded = try? JSONDecoder().decode([String: Int].self, from: data) {
+            return decoded
+        }
+        return [:]
     }
-    return [:]
 }

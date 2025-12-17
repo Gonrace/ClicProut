@@ -72,7 +72,7 @@ struct ContentView: View {
                         .foregroundColor(.yellow)
                     
                     // ALERTE D'ATTAQUE : Maintenant un bouton qui ouvre le menu Combat
-                    if data.isUnderAttack {
+                    if data.isUnderAttack && data.isActeUnlocked(2) {
                         Button(action: { showingCombat = true }) {
                             HStack(spacing: 10) {
                                 Image(systemName: "bolt.shield.fill")
@@ -140,20 +140,32 @@ struct ContentView: View {
                     NavButton(icon: "trophy.fill", action: { showingLeaderboard = true }, color: .orange)
                     
                     // 3. COMBAT (CENTRAL - ÉCLAIR)
-                    Button(action: { showingCombat = true }) {
-                        ZStack {
-                            Circle()
-                                .fill(data.isUnderAttack ? Color.red : Color.gray.opacity(0.5))
-                                .frame(width: 55, height: 55)
-                                .shadow(color: data.isUnderAttack ? .red.opacity(0.6) : .black.opacity(0.3), radius: 8)
-                            Image(systemName: "bolt.fill")
-                                .foregroundColor(.white)
-                                .font(.title2)
+                    // On n'affiche le bouton de combat QUE si l'acte 2 est débloqué
+                    if data.isActeUnlocked(2) {
+                        Button(action: { showingCombat = true }) {
+                            ZStack {
+                                Circle()
+                                    .fill(data.isUnderAttack ? Color.red : Color.gray.opacity(0.5))
+                                    .frame(width: 55, height: 55)
+                                    .shadow(color: data.isUnderAttack ? .red.opacity(0.6) : .black.opacity(0.3), radius: 8)
+                                Image(systemName: "bolt.fill")
+                                    .foregroundColor(.white)
+                                    .font(.title2)
+                            }
+                            .offset(y: -15)
                         }
-                        .offset(y: -15)
+                        .frame(maxWidth: .infinity)
+                    } else {
+                        // Si l'acte 2 n'est pas débloqué, on met un espace vide ou un cadenas
+                        VStack {
+                            Image(systemName: "lock.fill")
+                                .foregroundColor(.gray.opacity(0.5))
+                                .font(.caption)
+                            Text("Acte 2").font(.system(size: 8)).foregroundColor(.gray)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .offset(y: -5)
                     }
-                    .frame(maxWidth: .infinity)
-                    
                     // 4. Inventaire
                     NavButton(icon: "person.text.rectangle", action: { showingInventory = true }, color: .teal)
                     

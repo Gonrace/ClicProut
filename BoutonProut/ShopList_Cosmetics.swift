@@ -1,23 +1,68 @@
 import Foundation
 
-// NOTE : Nécessite ShopModels.swift pour les structures ShopItem et CurrencyType
-// Prix ajustés pour le PQ d'Or (beaucoup plus bas que les pets)
-
 let cosmeticShopItems: [ShopItem] = [
+    // MARK: - ACTE 1 : BÉBÉ MERDE 👶
+    ShopItem(name: "Fond Crèche",
+             description: "Un environnement doux pour vos premiers prouts.",
+             baseCost: 500, currency: .pets, category: .background, emoji: "🍼", acte: 1),
     
-    // --- SKINS CACA (Monnaie: PQ d'Or) ---
-    ShopItem(name: "Caca Doré", description: "Faites la fierté de vos pets. Change l'emoji central.", baseCost: 10, currency: .goldenPaper, category: .skin, emoji: "🌟", cosmeticID: "golden_poop"),
-    ShopItem(name: "Caca Galactique", description: "Le prout des étoiles.", baseCost: 25, currency: .goldenPaper, category: .skin, emoji: "🪐", cosmeticID: "galactic_poop"),
-    ShopItem(name: "Caca Pixel", description: "L'ère des 8 bits.", baseCost: 5, currency: .goldenPaper, category: .skin, emoji: "🧱", cosmeticID: "pixel_poop"),
+    ShopItem(name: "Skin Couche Culotte",
+             description: "L'équipement indispensable du débutant.",
+             baseCost: 1500, currency: .pets, category: .skin, emoji: "🧷", acte: 1),
     
-    // --- SONS (Monnaie: PQ d'Or) ---
-    ShopItem(name: "Sons Cartoon", description: "Des bruits plus amusants (Pouet !).", baseCost: 5, currency: .goldenPaper, category: .sound, emoji: "🔊", cosmeticID: "cartoon_sound_pack"),
-    ShopItem(name: "Sons Métal", description: "Bruits de cloches et de tonnerre.", baseCost: 15, currency: .goldenPaper, category: .sound, emoji: "🤘", cosmeticID: "metal_sounds"),
-    
-    // --- FONDS D'ÉCRAN (Monnaie: PQ d'Or) ---
-    ShopItem(name: "Fond Nuit Pastel", description: "Change le fond d'écran de l'application.", baseCost: 3, currency: .goldenPaper, category: .background, emoji: "🌃", cosmeticID: "pastel_bg"),
-    ShopItem(name: "Fond Forêt", description: "Ambiance jungle humide.", baseCost: 8, currency: .goldenPaper, category: .background, emoji: "🌳", cosmeticID: "forest_bg"),
+    ShopItem(name: "Cri de Bébé",
+             description: "Remplace le son du prout par un petit couinement.",
+             baseCost: 10, currency: .goldenPaper, category: .sound, emoji: "📢", acte: 1),
 
-    // --- MUSIQUE (Monnaie: PQ d'Or) ---
-    ShopItem(name: "Jazz Fart", description: "Musique d'ambiance relaxante et prout discret en boucle.", baseCost: 20, currency: .goldenPaper, category: .music, emoji: "🎷", cosmeticID: "jazz_fart_music"),
+    // MARK: - ACTE 2 : L'ÂGE INGRAT 😈
+    ShopItem(name: "Fond Chambre en Bordel",
+             description: "Des posters et des chaussettes sales partout.",
+             baseCost: 15000, currency: .pets, category: .background, emoji: "🏚️", acte: 2),
+    
+    ShopItem(name: "Skin Casquette à l'envers",
+             description: "Pour montrer que vous êtes un prouteur rebelle.",
+             baseCost: 25000, currency: .pets, category: .skin, emoji: "🧢", acte: 2),
+    
+    ShopItem(name: "Aura de Rébellion",
+             description: "Une traînée de fumée stylée derrière vos clics.",
+             baseCost: 50, currency: .goldenPaper, category: .skin, emoji: "🔥", acte: 2),
+
+    // MARK: - ACTE 3 : LE LOVEUR ❤️
+    ShopItem(name: "Fond Dîner aux Chandelles",
+             description: "Romantisme et gaz... le mélange parfait.",
+             baseCost: 250000, currency: .pets, category: .background, emoji: "🕯️", acte: 3),
+    
+    ShopItem(name: "Skin Costume de Mariage",
+             description: "Soyez le prouteur le plus élégant de la cérémonie.",
+             baseCost: 500000, currency: .pets, category: .skin, emoji: "🤵", acte: 3),
+    
+    ShopItem(name: "Son Pétale de Rose",
+             description: "Un son de prout si doux qu'on dirait une harpe.",
+             baseCost: 100, currency: .goldenPaper, category: .sound, emoji: "🌹", acte: 3),
+
+    // MARK: - ACTE 4 : MONSIEUR PRO 💼
+    ShopItem(name: "Fond Open Space",
+             description: "Produisez du gaz entre deux réunions Zoom.",
+             baseCost: 2000000, currency: .pets, category: .background, emoji: "🖥️", acte: 4),
+    
+    ShopItem(name: "Skin Mallette de PDG",
+             description: "Le prout devient une affaire sérieuse.",
+             baseCost: 5000000, currency: .pets, category: .skin, emoji: "💼", acte: 4),
+    
+    ShopItem(name: "Prout de Bureau",
+             description: "Le son étouffé d'un prout en pleine réunion.",
+             baseCost: 200, currency: .goldenPaper, category: .sound, emoji: "🔇", acte: 4),
+
+    // MARK: - ACTE 5 : LE GRAND REPOS 👴
+    ShopItem(name: "Fond Jardin Fleuri",
+             description: "Le calme de la retraite, enfin.",
+             baseCost: 15000000, currency: .pets, category: .background, emoji: "🌳", acte: 5),
+    
+    ShopItem(name: "Skin Dentier Vibrant",
+             description: "Un look vintage pour un prouteur d'expérience.",
+             baseCost: 30000000, currency: .pets, category: .skin, emoji: "🦷", acte: 5),
+    
+    ShopItem(name: "Le Prout de Platine",
+             description: "L'icône ultime du prouteur légendaire.",
+             baseCost: 999, currency: .goldenPaper, category: .skin, emoji: "✨", acte: 5)
 ]

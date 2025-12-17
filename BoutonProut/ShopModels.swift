@@ -11,9 +11,11 @@ enum ItemCategory: String, Codable {
     case production = "Bâtiment de Pet"       // Auto PPS (Ancien .building)
     case outil = "Outil de Clic"              // Manuel PPC (Ancien .clicker)
     case amelioration = "Amélioration"        // Multiplicateurs (Ancien .upgrade)
-    case defense = "Défense"                  // NOUVEAU : Bloque un effet.
-    case perturbateur = "Attaque/Perturbateur"  // NOUVEAU : Consommable ou à envoyer.
     case jalonNarratif = "Jalon Narratif"     // NOUVEAU : Histoire (Ancien .narratif)
+    
+    //Attaque/Defense
+    case defense      = "Défense"
+    case perturbateur = "Attaque"
     
     // Cosmétiques
     case skin = "Skin"
@@ -23,10 +25,7 @@ enum ItemCategory: String, Codable {
 }
 
 // Structure unique de l'objet (MISE À JOUR)
-// Rendre la structure conformes à Identifiable et Codable
 struct ShopItem: Identifiable, Codable {
-    // Si vous voulez conserver UUID, vous devez l'initialiser dans la création d'objet.
-    // Pour simplifier, nous utilisons le nom comme ID unique dans les calculs.
     var id = UUID()
     let name: String
     let description: String
@@ -49,4 +48,8 @@ struct ShopItem: Identifiable, Codable {
     var effectID: String? = nil
     var durationMinutes: Int = 0
     var isConsumable: Bool = false
+    
+    // --- ON DÉPLACE ACTE ICI ---
+    // En le mettant à la fin, il correspondra à l'ordre de tes listes
+    let acte: Int
 }

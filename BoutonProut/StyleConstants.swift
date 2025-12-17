@@ -47,3 +47,4 @@ struct CustomTitleBar: View {
         .padding(.bottom, 10)
     }
 }
+

@@ -17,8 +17,8 @@ struct StatRow: View {
                 .foregroundColor(AppStyle.accentColor)
         }
         .foregroundColor(.white)
-        .padding(.vertical, 8) // Un peu plus d'espace pour la lisibilité
-        .padding(.horizontal, 10)
+        .padding(.vertical, 12) // Augmenté pour un look plus premium
+        .padding(.horizontal, 15)
     }
 }
 
@@ -35,97 +35,158 @@ struct StatsView: View {
     @State private var tempUsername: String = ""
     
     // --- ÉTATS POUR LE MENU DEBUG SECRET ---
-    @State private var debugClickCount = 0       // Compteur de clics sur le titre
-    @State private var showingCodeAlert = false   // Affiche la demande de mot de passe
-    @State private var secretCodeInput = ""       // Stocke la saisie du code
-    @State private var showingDebug = false       // Contrôle l'ouverture du DebugView
+    @State private var debugClickCount = 0
+    @State private var showingCodeAlert = false
+    @State private var secretCodeInput = ""
+    @State private var showingDebug = false
+    
+    // --- LOGIQUE NARRATIVE DES ACTES ---
+    // Détermine le titre affiché selon l'acte le plus élevé débloqué
+    var currentEvolutionStage: String {
+        if data.isActeUnlocked(5) { return "Retraité Serein 👴" }
+        if data.isActeUnlocked(4) { return "Cadre Dynamique 💼" }
+        if data.isActeUnlocked(3) { return "Loveur Élégant ❤️" }
+        if data.isActeUnlocked(2) { return "Ado Rebelle 😈" }
+        return "Bébé Innocent 👶"
+    }
     
     var body: some View {
         ZStack {
-            // Fond d'écran sombre unifié
             AppStyle.secondaryBackground.edgesIgnoringSafeArea(.all)
 
             VStack(spacing: 0) {
                 
-                // 1. BARRE DE TITRE AVEC DÉTECTION DE CLICS (SECRET)
-                // Cliquer 10 fois ici pour déclencher l'accès DEV
+                // 1. BARRE DE TITRE (Zone secrète pour le menu dev)
                 CustomTitleBar(title: "Statistiques 📊", onDismiss: { dismiss() })
-                    .contentShape(Rectangle()) // Rend toute la zone cliquable
+                    .contentShape(Rectangle())
                     .onTapGesture {
                         debugClickCount += 1
                         if debugClickCount >= 10 {
                             showingCodeAlert = true
-                            debugClickCount = 0 // Réinitialise pour la prochaine fois
+                            debugClickCount = 0
                         }
                     }
                 
                 ScrollView {
-                    VStack(alignment: .leading, spacing: AppStyle.defaultPadding) {
+                    VStack(alignment: .leading, spacing: 25) {
                         
-                        // --- SECTION 1 : PROFIL ---
+                        // --- SECTION 1 : STADE D'ÉVOLUTION
+                        VStack(spacing: 15) {
+                            Text("TON STADE D'ÉVOLUTION")
+                                .font(.caption)
+                                .fontWeight(.bold)
+                                .foregroundColor(.gray)
+                            
+                            VStack(spacing: 12) {
+                                Text(currentEvolutionStage)
+                                    .font(.title3)
+                                    .fontWeight(.black)
+                                    .foregroundColor(AppStyle.accentColor)
+                                
+                                // --- BARRE DE PROGRESSION ---
+                                VStack(spacing: 5) {
+                                    GeometryReader { geo in
+                                        ZStack(alignment: .leading) {
+                                            // Fond de la barre
+                                            RoundedRectangle(cornerRadius: 5)
+                                                .fill(Color.white.opacity(0.1))
+                                                .frame(height: 8)
+                                            
+                                            // Remplissage
+                                            RoundedRectangle(cornerRadius: 5)
+                                                .fill(AppStyle.accentColor)
+                                                .frame(width: geo.size.width * CGFloat(data.currentActeProgress), height: 8)
+                                        }
+                                    }
+                                    .frame(height: 8)
+                                    
+                                    // Texte du pourcentage
+                                    HStack {
+                                        Text("Complétion de l'acte")
+                                        Spacer()
+                                        Text("\(Int(data.currentActeProgress * 100))%")
+                                            .fontWeight(.bold)
+                                    }
+                                    .font(.caption2)
+                                    .foregroundColor(.gray)
+                                }
+                            }
+                            .padding()
+                            .background(Color.white.opacity(0.05))
+                            .cornerRadius(15)
+                        }
+                        .padding(.top, 10)
+                        // --- SECTION 2 : PROFIL ---
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Profil").font(AppStyle.subTitleFont).foregroundColor(.white)
                             
                             HStack {
+                                Image(systemName: "person.fill").foregroundColor(.gray)
                                 Text("Pseudo :").foregroundColor(.white)
                                 Spacer()
                                 Text(gameManager.username)
                                     .fontWeight(.bold)
                                     .foregroundColor(AppStyle.accentColor)
                                 
-                                // Bouton pour modifier le pseudo
                                 Button {
                                     tempUsername = gameManager.username
                                     showingNameEditAlert = true
                                 } label: {
                                     Image(systemName: "pencil.circle.fill")
                                         .font(.title2)
+                                        .foregroundColor(.orange)
                                 }
-                                .buttonStyle(.borderless)
-                                .foregroundColor(.orange)
                             }
-                            .padding(AppStyle.defaultPadding / 2)
+                            .padding()
                             .background(AppStyle.listRowBackground)
-                            .cornerRadius(10)
+                            .cornerRadius(12)
                         }
                         
-                        // --- SECTION 2 : DONNÉES DE JEU ---
+                        // --- SECTION 3 : DONNÉES FINANCIÈRES ---
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Données de Jeu").font(AppStyle.subTitleFont).foregroundColor(.white)
+                            Text("Économie").font(AppStyle.subTitleFont).foregroundColor(.white)
                             
                             VStack(spacing: 0) {
-                                StatRow(title: "Pets Actuels", value: "\(data.totalFartCount) 💩")
-                                Divider().background(Color.white.opacity(0.1)) // Ligne de séparation légère
-                                StatRow(title: "Pets à vie (Score)", value: "\(data.lifetimeFarts) 🏆")
+                                StatRow(title: "Pets en poche", value: "\(data.totalFartCount) 💩")
                                 Divider().background(Color.white.opacity(0.1))
-                                StatRow(title: "Puissance Clic", value: "\(data.clickPower) PPC")
+                                StatRow(title: "PQ d'Or cumulé", value: "\(data.goldenToiletPaper) 👑")
                                 Divider().background(Color.white.opacity(0.1))
-                                StatRow(title: "Production Auto", value: String(format: "%.2f PPS", data.petsPerSecond))
+                                StatRow(title: "Score Total (Vie)", value: "\(data.lifetimeFarts) 🏆")
                             }
                             .background(AppStyle.listRowBackground)
-                            .cornerRadius(10)
+                            .cornerRadius(12)
                         }
                         
-                        // Note informative en bas
-                        Text("Les 'Pets à vie' déterminent votre rang dans le classement mondial.")
+                        // --- SECTION 4 : PERFORMANCES ---
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Performances").font(AppStyle.subTitleFont).foregroundColor(.white)
+                            
+                            VStack(spacing: 0) {
+                                StatRow(title: "Puissance de Clic", value: "\(data.clickPower) PPC")
+                                Divider().background(Color.white.opacity(0.1))
+                                StatRow(title: "Vitesse Auto", value: String(format: "%.2f PPS", data.petsPerSecond))
+                            }
+                            .background(AppStyle.listRowBackground)
+                            .cornerRadius(12)
+                        }
+                        
+                        // Footer
+                        Text("Débloque de nouveaux objets dans la boutique pour évoluer vers l'âge suivant.")
                             .font(.caption2)
                             .foregroundColor(.gray)
                             .multilineTextAlignment(.center)
                             .frame(maxWidth: .infinity)
-                            .padding(.top, 20)
+                            .padding(.top, 10)
                     }
                     .padding(AppStyle.defaultPadding)
                 }
             }
         }
         
-        // --- ALERTES ET MODALES ---
-
-        // 1. Alerte Modification de Pseudo
+        // --- ALERTES ---
+        
         .alert("Modifier votre Nom", isPresented: $showingNameEditAlert) {
             TextField("Nouveau nom", text: $tempUsername)
-                .textInputAutocapitalization(.words)
-            
             Button("Valider") {
                 let trimmed = tempUsername.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !trimmed.isEmpty {
@@ -133,32 +194,21 @@ struct StatsView: View {
                 }
             }
             Button("Annuler", role: .cancel) { }
-        } message: {
-            Text("Choisissez le nom qui apparaîtra aux yeux de tous dans le classement.")
         }
         
-        // 2. Alerte de Code Secret (Déclenchée par 10 clics sur le titre)
         .alert("Accès Développeur", isPresented: $showingCodeAlert) {
-            TextField("Entrez le code", text: $secretCodeInput)
-                .textInputAutocapitalization(.characters) // Force les majuscules
-            
+            SecureField("Code secret", text: $secretCodeInput)
             Button("Valider") {
                 if secretCodeInput == "PROUT2025" {
-                    showingDebug = true // Ouvre le menu de test
+                    showingDebug = true
                 }
-                secretCodeInput = "" // Nettoyage
-            }
-            Button("Annuler", role: .cancel) {
                 secretCodeInput = ""
             }
-        } message: {
-            Text("Veuillez saisir le code d'accès pour les outils de débogage.")
+            Button("Annuler", role: .cancel) { secretCodeInput = "" }
         }
         
-        // 3. Affichage du Menu Debug (si le code est bon)
         .sheet(isPresented: $showingDebug) {
             DebugView(data: data)
-                .interactiveDismissDisabled(true) // Empêche de fermer par erreur pendant un test
         }
     }
 }

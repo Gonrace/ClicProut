@@ -20,7 +20,7 @@ struct ShopView: View {
                 // 1. BARRE DE TITRE
                 CustomTitleBar(title: "La Proutique 🛍️", onDismiss: { dismiss() })
                 
-                // Score
+                // Score en temps réel
                 HStack(spacing: 20) {
                     Text("Pets : \(data.totalFartCount) 💩")
                         .font(.headline).foregroundColor(.white)
@@ -44,43 +44,50 @@ struct ShopView: View {
                     VStack(alignment: .leading, spacing: AppStyle.defaultPadding) {
                         
                         if selectedTab == .tools {
-                            // --- ONGLET PRODUCTION ---
-                            ShopSection(title: "1. Outils de Clic (PPC)") {
-                                ForEach(standardShopItems.filter { $0.category == .outil }, id: \.id) { item in
-                                    ItemRow(item: item, data: data)
-                                }
+                            // --- ONGLET PRODUCTION (ACTES) ---
+                            ActeSection(title: "Acte I : Les Débuts 👶", acte: 1, data: data)
+                            
+                            if data.isActeUnlocked(2) {
+                                ActeSection(title: "Acte II : La Croissance 😈", acte: 2, data: data)
+                            } else {
+                                LockedActeRow(acteNumber: 1)
                             }
                             
-                            ShopSection(title: "2. Bâtiments (PPS)") {
-                                ForEach(standardShopItems.filter { $0.category == .production }, id: \.id) { item in
-                                    ItemRow(item: item, data: data)
-                                }
+                            if data.isActeUnlocked(3) {
+                                ActeSection(title: "Acte III : L'Amour ❤️", acte: 3, data: data)
+                            } else if data.isActeUnlocked(2) {
+                                LockedActeRow(acteNumber: 2)
                             }
                             
-                            ShopUniqueSection(data: data, title: "3. Améliorations Permanente", category: .amelioration)
+                            if data.isActeUnlocked(4) {
+                                ActeSection(title: "Acte IV : L'Héritage 🌌", acte: 4, data: data)
+                            } else if data.isActeUnlocked(3) {
+                                LockedActeRow(acteNumber: 3)
+                            }
                             
-                            ShopUniqueSection(data: data, title: "4. Progression", category: .jalonNarratif)
-                            
+                            if data.isActeUnlocked(5) {
+                                ActeSection(title: "Acte V : Le Grand Repos 👴", acte: 5, data: data)
+                            } else if data.isActeUnlocked(4) {
+                                LockedActeRow(acteNumber: 4)
+                            }
+
                         } else if selectedTab == .cosmetics {
-                            // --- ONGLET COSMÉTIQUES ---
-                            if !cosmeticShopItems.isEmpty {
-                                ShopSection(title: "Personnalisation") {
-                                    ForEach(cosmeticShopItems, id: \.id) { item in
-                                        // Correction ici pour l'affichage des cosmétiques déjà achetés
-                                        if data.itemLevels[item.name, default: 0] > 0 {
-                                            ItemBoughtRow(item: item)
-                                        } else {
-                                            ItemRow(item: item, data: data)
+                            // --- ONGLET COSMÉTIQUES (FILTRÉS PAR ACTE) ---
+                            ForEach(1...5, id: \.self) { acteNum in
+                                if data.isActeUnlocked(acteNum) {
+                                    ShopSection(title: "Style - Acte \(acteNum)") {
+                                        ForEach(cosmeticShopItems.filter { $0.acte == acteNum }, id: \.name) { item in
+                                            if data.itemLevels[item.name, default: 0] > 0 {
+                                                ItemBoughtRow(item: item)
+                                            } else {
+                                                ItemRow(item: item, data: data)
+                                            }
                                         }
                                     }
                                 }
-                            } else {
-                                Text("Aucun cosmétique disponible pour le moment.")
-                                    .foregroundColor(.gray).padding()
                             }
-                            
                         } else if selectedTab == .currency {
-                            // --- ONGLET ACHAT PQ D'OR ---
+                            // --- ONGLET PQ D'OR ---
                             IAPShopView(data: data)
                         }
                     }
@@ -90,153 +97,190 @@ struct ShopView: View {
             }
         }
     }
+}
+
+// MARK: - COMPOSANTS INTERNES
+struct ShopSection<Content: View>: View {
+    let title: String
+    let content: Content
+    init(title: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(title).font(AppStyle.subTitleFont).bold().foregroundColor(.white).padding(.leading, 5)
+            VStack(spacing: 1) { content }.background(AppStyle.listRowBackground).cornerRadius(10)
+        }
+    }
+}
+
+// MARK: - COMPOSANT DE SECTION PAR ACTE (MIS À JOUR)
+struct ActeSection: View {
+    let title: String
+    let acte: Int
+    @ObservedObject var data: GameData
     
-    // --- COMPOSANTS INTERNES (Gardés au sein de ShopView pour la cohérence) ---
+    var body: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            // Titre de l'Acte
+            Text(title)
+                .font(AppStyle.subTitleFont)
+                .bold()
+                .foregroundColor(.white)
+                .padding(.leading, 5)
+            
+            // --- GROUPE 1 : OUTILS DE CLIC ---
+            categoryGroup(
+                title: "Outils de Clic 🖱️",
+                items: standardShopItems.filter { $0.acte == acte && $0.category == .outil }
+            )
+            
+            // --- GROUPE 2 : BÂTIMENTS DE PRODUCTION ---
+            categoryGroup(
+                title: "Bâtiments de Production 🏭",
+                items: standardShopItems.filter { $0.acte == acte && $0.category == .production }
+            )
+            
+            // --- GROUPE 3 : AMÉLIORATIONS & JALONS ---
+            categoryGroup(
+                title: "Améliorations & Jalons ✨",
+                items: standardShopItems.filter { $0.acte == acte && ($0.category == .amelioration || $0.category == .jalonNarratif) }
+            )
+        }
+        .padding(.bottom, 10)
+    }
     
-    struct ShopUniqueSection: View {
-        @ObservedObject var data: GameData
-        let title: String
-        let category: ItemCategory
-        var body: some View {
-            let items = standardShopItems.filter { $0.category == category }
-            if !items.isEmpty {
-                ShopSection(title: title) {
-                    ForEach(items, id: \.id) { item in
-                        if data.itemLevels[item.name, default: 0] > 0 && !item.isConsumable {
+    // Fonction helper pour créer les sous-sections
+    @ViewBuilder
+    private func categoryGroup(title: String, items: [ShopItem]) -> some View {
+        if !items.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(title)
+                    .font(.caption)
+                    .fontWeight(.bold)
+                    .foregroundColor(.gray)
+                    .padding(.leading, 10)
+                    .textCase(.uppercase)
+                
+                VStack(spacing: 1) {
+                    ForEach(items, id: \.name) { item in
+                        let level = data.itemLevels[item.name, default: 0]
+                        let isUnique = (item.category != .production && item.category != .outil)
+                        
+                        if isUnique && level > 0 && !item.isConsumable {
                             ItemBoughtRow(item: item)
                         } else {
                             ItemRow(item: item, data: data)
                         }
                     }
                 }
+                .background(AppStyle.listRowBackground)
+                .cornerRadius(12)
             }
         }
     }
-
-    struct ItemBoughtRow: View {
-        let item: ShopItem
-        var body: some View {
-            HStack {
-                Text(item.emoji).font(.largeTitle)
-                VStack(alignment: .leading) {
-                    Text(item.name).font(.headline).foregroundColor(.white)
-                    Text(item.description).font(.caption).foregroundColor(.gray)
-                }
-                Spacer()
-                Text("POSSÉDÉ ✅").foregroundColor(.green).font(.caption).fontWeight(.bold)
-            }
-            .padding(8).background(AppStyle.listRowBackground).cornerRadius(10)
+}
+struct LockedActeRow: View {
+    let acteNumber: Int
+    var body: some View {
+        HStack {
+            Image(systemName: "lock.fill").foregroundColor(.orange)
+            Text("Terminez 90% de l'Acte \(acteNumber) pour débloquer la suite")
+                .font(.caption).foregroundColor(.gray)
         }
+        .frame(maxWidth: .infinity).padding().background(Color.white.opacity(0.05)).cornerRadius(10)
     }
+}
 
-    struct ShopSection<Content: View>: View {
-        let title: String
-        let content: Content
-        init(title: String, @ViewBuilder content: () -> Content) {
-            self.title = title
-            self.content = content()
+struct ItemRow: View {
+    let item: ShopItem
+    @ObservedObject var data: GameData
+    
+    var displayCost: Int {
+        let level = data.itemLevels[item.name, default: 0]
+        if item.category == .production || item.category == .outil {
+            return Int((Double(item.baseCost) * pow(1.2, Double(level))).rounded())
         }
-        var body: some View {
-            VStack(alignment: .leading, spacing: 10) {
-                Text(title).font(AppStyle.subTitleFont).bold().foregroundColor(.white).padding(.leading, 5)
-                VStack(spacing: 1) { content }.background(AppStyle.listRowBackground).cornerRadius(10)
-            }
-        }
-    }
-
-    struct ItemRow: View {
-        let item: ShopItem
-        @ObservedObject var data: GameData
-        
-        var displayCost: Int {
-            let level = data.itemLevels[item.name, default: 0]
-            if item.category == .production || item.category == .outil {
-                return Int((Double(item.baseCost) * pow(1.2, Double(level))).rounded())
-            }
-            return item.baseCost
-        }
-        
-        var body: some View {
-            HStack {
-                Text(item.emoji).font(.largeTitle)
-                VStack(alignment: .leading) {
-                    HStack(spacing: 5) {
-                        Text(item.name)
-                            .font(.headline)
-                            .foregroundColor(.white)
-                        
-                        // Ajout du niveau à côté du nom
-                        if item.category == .production || item.category == .outil {
-                            Text("Niv. \(data.itemLevels[item.name, default: 0])")
-                                .font(.system(size: 10, weight: .bold))
-                                .padding(.horizontal, 4)
-                                .background(Color.blue.opacity(0.3))
-                                .cornerRadius(4)
-                                .foregroundColor(.cyan)
-                        }
-                    }
-                    Text(item.category == .production ? "\(String(format: "%.1f", item.dpsRate / 10.0)) PPS" : item.description)
-                        .font(.caption).foregroundColor(.gray)
-                }
-                Spacer()
-                Button(action: {
-                    // 1. On tente l'achat
-                    let success = data.attemptPurchase(item: item)
-                    
-                    // 2. On déclenche le retour haptique (vibration) selon le résultat
-                    if success {
-                        // Vibration légère et joyeuse pour le succès
-                        let successGenerator = UINotificationFeedbackGenerator()
-                        successGenerator.notificationOccurred(.success)
-                    } else {
-                        // Vibration double et sèche pour l'échec (pas assez d'argent)
-                        let errorGenerator = UINotificationFeedbackGenerator()
-                        errorGenerator.notificationOccurred(.error)
-                    }
-                }) {
-                    // Ton label de bouton actuel (VStack avec le prix et l'emoji)
-                    VStack {
-                        Text("\(displayCost)").bold()
-                        Text(item.currency == .goldenPaper ? "👑" : "💩").font(.caption2)
-                    }
-                    .padding(8)
-                    .background(canAfford ? Color.green : Color.gray)
-                    .foregroundColor(.white)
-                    .cornerRadius(8)
-                }
-                .disabled(!canAfford)
-            }
-            .padding(10)
-        }
-        
-        var canAfford: Bool {
-            if item.currency == .pets {
-                return data.totalFartCount >= displayCost
-            } else {
-                return data.goldenToiletPaper >= displayCost
-            }
-        }
+        return item.baseCost
     }
     
-    struct IAPShopView: View {
-        @ObservedObject var data: GameData
-        let iapPacks = [("Petit Rouleau", "0.99€", 10), ("Pack Confort", "4.99€", 60), ("Super Rouleau Famille", "9.99€", 150)]
-        var body: some View {
-            VStack(alignment: .leading, spacing: 15) {
-                Text("Banque de PQ d'Or").font(.headline).foregroundColor(.white)
-                ForEach(iapPacks, id: \.0) { pack in
-                    HStack {
-                        Text("👑").font(.title2)
-                        VStack(alignment: .leading) {
-                            Text(pack.0).foregroundColor(.white).bold()
-                            Text("\(pack.2) PQ d'Or").font(.caption).foregroundColor(.gray)
-                        }
-                        Spacer()
-                        Button(pack.1) { data.goldenToiletPaper += pack.2 }
-                            .padding(8).background(Color.yellow).foregroundColor(.black).cornerRadius(8)
+    var hasRequiredItems: Bool {
+        guard let reqName = item.requiredItem, let reqCount = item.requiredItemCount else { return true }
+        return data.itemLevels[reqName, default: 0] >= reqCount
+    }
+    
+    var canAfford: Bool {
+        item.currency == .pets ? data.totalFartCount >= displayCost : data.goldenToiletPaper >= displayCost
+    }
+    
+    var body: some View {
+        HStack {
+            Text(item.emoji).font(.largeTitle)
+                .grayscale(hasRequiredItems ? 0 : 1).opacity(hasRequiredItems ? 1 : 0.5)
+            
+            VStack(alignment: .leading) {
+                HStack {
+                    Text(item.name).font(.headline).foregroundColor(hasRequiredItems ? .white : .gray)
+                    if item.category == .production || item.category == .outil {
+                        Text("Lv.\(data.itemLevels[item.name, default: 0])").font(.system(size: 10)).foregroundColor(.cyan).bold()
                     }
-                    .padding().background(AppStyle.listRowBackground).cornerRadius(10)
                 }
+                if !hasRequiredItems {
+                    Text("Requis: \(item.requiredItemCount ?? 0)x \(item.requiredItem ?? "")").font(.caption2).foregroundColor(.red).bold()
+                } else {
+                    Text(item.description).font(.caption).foregroundColor(.gray).lineLimit(2)
+                }
+            }
+            Spacer()
+            Button(action: {
+                if data.attemptPurchase(item: item) {
+                    UINotificationFeedbackGenerator().notificationOccurred(.success)
+                } else {
+                    UINotificationFeedbackGenerator().notificationOccurred(.error)
+                }
+            }) {
+                VStack {
+                    Text("\(displayCost)").bold()
+                    Text(item.currency == .goldenPaper ? "👑" : "💩").font(.caption2)
+                }
+                .padding(8).frame(width: 80).background(hasRequiredItems && canAfford ? Color.green : Color.gray.opacity(0.5)).foregroundColor(.white).cornerRadius(8)
+            }
+            .disabled(!canAfford || !hasRequiredItems)
+        }.padding(10)
+    }
+}
+
+struct ItemBoughtRow: View {
+    let item: ShopItem
+    var body: some View {
+        HStack {
+            Text(item.emoji).font(.largeTitle).opacity(0.5)
+            VStack(alignment: .leading) {
+                Text(item.name).font(.headline).foregroundColor(.gray)
+                Text("Déjà acquis").font(.caption).foregroundColor(.green)
+            }
+            Spacer()
+            Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
+        }.padding(10)
+    }
+}
+
+struct IAPShopView: View {
+    @ObservedObject var data: GameData
+    let packs = [("Petit Rouleau", 10, "0.99€"), ("Pack Confort", 60, "4.99€"), ("Super Rouleau Famille", 150, "9.99€")]
+    var body: some View {
+        VStack(spacing: 15) {
+            ForEach(packs, id: \.0) { pack in
+                HStack {
+                    Text("👑").font(.title)
+                    VStack(alignment: .leading) {
+                        Text(pack.0).bold().foregroundColor(.white)
+                        Text("\(pack.1) PQ d'Or").font(.caption).foregroundColor(.gray)
+                    }
+                    Spacer()
+                    Button(pack.2) { data.goldenToiletPaper += pack.1 }.buttonStyle(.borderedProminent).tint(.orange)
+                }.padding().background(AppStyle.listRowBackground).cornerRadius(12)
             }
         }
     }

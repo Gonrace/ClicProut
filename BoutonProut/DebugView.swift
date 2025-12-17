@@ -1,4 +1,3 @@
-
 import SwiftUI
 
 struct DebugView: View {
@@ -7,61 +6,99 @@ struct DebugView: View {
     
     var body: some View {
         NavigationView {
-            VStack(spacing: 20) {
+            List { // Utilisation d'une List pour un look iOS natif et propre
                 
-                Text("⚠️ Outils de Débogage ⚠️")
-                    .font(.title)
-                    .fontWeight(.bold)
-                    .foregroundColor(.red)
-                
-                // --- Tricherie ---
-                
-                Button("Ajouter 1 Milliard de Pets 💩") {
-                    data.addCheatPets()
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.yellow)
-                
-                Button("Ajouter 999 PQ d'Or 👑") {
-                    data.addCheatGoldenPaper()
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.orange)
-                
-                Divider()
-                    .padding(.vertical, 10)
-                                
-                Button("Simuler Attaque Reçue (5 min)") {
-                    // On appelle directement la fonction de GameData
-                    let _ = data.applyAttack(effectID: "attack_dps_reduction_50", duration: 5)
-                }
-                .tint(.purple)
-                
-                // --- Réinitialisation ---
-
-                // Dans ta DebugView.swift
-                Button(role: .destructive, action: {
-                    data.hardReset()
-                    // Optionnel : fermer le menu debug après le reset
-                }) {
+                // --- SECTION 1 : RESSOURCES ---
+                Section(header: Text("Économie & Monnaies")) {
                     HStack {
-                        Image(systemName: "trash.fill")
-                        Text("RÉINITIALISATION TOTALE (WIPE)")
+                        Button("Pets +1M") { data.totalFartCount += 1_000_000 }
+                        Spacer()
+                        Button("Pets +1B") { data.totalFartCount += 1_000_000_000 }
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color.red)
-                    .foregroundColor(.white)
-                    .cornerRadius(10)
+                    HStack {
+                        Button("PQ Or +100") { data.goldenToiletPaper += 100 }
+                        Spacer()
+                        Button("PQ Or +1k") { data.goldenToiletPaper += 1000 }
+                    }
                 }
-                .buttonStyle(.borderedProminent)
                 
-                Spacer()
+                // --- SECTION 2 : GESTION DES ACTES ---
+                Section(header: Text("Progression par Actes")) {
+                    Text("Débloquer jusqu'à :").font(.caption).foregroundColor(.gray)
+                    HStack {
+                        ForEach(2...5, id: \.self) { acte in
+                            Button("Acte \(acte)") {
+                                unlockUntilActe(acte)
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
+                }
+
+                // --- SECTION 3 : SIMULATEUR DE COMBAT ---
+                Section(header: Text("Simulateur de Combat (Reçevoir)")) {
+                    Button("🧴 Spray (-50% PPS / 5min)") {
+                        data.applyAttack(effectID: "attack_dps_reduction_50", duration: 5, attackerName: "DarkProuteur", weaponName: "Spray Désodorisant")
+                    }
+                    Button("😫 Burn-out (-90% Tout / 15min)") {
+                        data.applyAttack(effectID: "attack_mega_nerf", duration: 15, attackerName: "Le Patron", weaponName: "Burn-out")
+                    }
+                    Button("📢 Dénonciation (Bloque Clic / 5min)") {
+                        data.applyAttack(effectID: "attack_total_block", duration: 5, attackerName: "Voisin Relou", weaponName: "Dénonciation")
+                    }
+                    Button("🧹 Nettoyer toutes les attaques") {
+                        data.activeAttacks.removeAll()
+                    }.foregroundColor(.green)
+                }
                 
+                // --- SECTION 4 : ÉQUIPEMENT RAPIDE ---
+                Section(header: Text("Inventaire de triche")) {
+                    Button("🎁 Pack Défense Complet (x1)") {
+                        giveAllDefenses()
+                    }
+                    Button("🧨 Pack Attaque Complet (x1)") {
+                        giveAllAttacks()
+                    }
+                }
+
+                // --- SECTION 5 : SYSTÈME & RESET ---
+                Section(header: Text("Danger Zone")) {
+                    Button(role: .destructive) {
+                        data.hardReset()
+                        dismiss()
+                    } label: {
+                        Label("WIPE TOTAL (REMISE À ZÉRO)", systemImage: "trash.danger")
+                    }
+                }
             }
-            .padding()
-            .navigationTitle("DEBUG")
+            .navigationTitle("Menu Dev")
             .navigationBarItems(trailing: Button("Fermer") { dismiss() })
+        }
+    }
+    
+    // MARK: - HELPERS DE TRICHE
+    
+    func unlockUntilActe(_ target: Int) {
+        // Pour débloquer l'acte X, on donne 1 exemplaire de tous les objets des actes précédents
+        let itemsToUnlock = data.allItems.filter { $0.acte < target }
+        for item in itemsToUnlock {
+            data.itemLevels[item.name] = 1
+        }
+        // Donner aussi un peu d'argent pour tester l'achat
+        data.totalFartCount += 100_000
+    }
+    
+    func giveAllDefenses() {
+        let defenses = data.allItems.filter { $0.category == .defense }
+        for item in defenses {
+            data.itemLevels[item.name] = 1
+        }
+    }
+    
+    func giveAllAttacks() {
+        let attacks = data.allItems.filter { $0.category == .perturbateur }
+        for item in attacks {
+            data.itemLevels[item.name] = 1
         }
     }
 }
