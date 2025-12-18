@@ -47,7 +47,6 @@ struct CombatView: View {
 
                                         Divider().background(Color.white.opacity(0.2))
 
-                                        // Liste des défenses possédées par le joueur
                                         let ownedDefenses = data.allItems.filter {
                                             $0.category == .defense && data.itemLevels[$0.name, default: 0] > 0
                                         }
@@ -60,8 +59,11 @@ struct CombatView: View {
                                             
                                             ForEach(ownedDefenses, id: \.name) { defenseItem in
                                                 Button(action: {
-                                                    self.combatAlertMessage = data.tryDefend(with: defenseItem)
-                                                    self.showCombatAlert = true
+                                                    // On utilise withAnimation pour une apparition fluide
+                                                    withAnimation(.spring()) {
+                                                        self.combatAlertMessage = data.tryDefend(with: defenseItem)
+                                                        self.showCombatAlert = true
+                                                    }
                                                     
                                                     if combatAlertMessage.contains("réussie") {
                                                         UINotificationFeedbackGenerator().notificationOccurred(.success)
@@ -91,11 +93,9 @@ struct CombatView: View {
                             }
                         }
 
-                        // --- SECTION 2 : ARSENAL D'ATTAQUE (Filtré par Actes débloqués) ---
+                        // --- SECTION 2 : ARSENAL D'ATTAQUE ---
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Arsenal d'Attaque 🧨").font(.headline).foregroundColor(.white)
-                            
-                            // On boucle de l'acte 2 (début pvp) à 5
                             ForEach(2...5, id: \.self) { acteNum in
                                 if data.isActeUnlocked(acteNum) {
                                     let items = data.allItems.filter { $0.category == .perturbateur && $0.acte == acteNum }
@@ -109,10 +109,9 @@ struct CombatView: View {
                             }
                         }
 
-                        // --- SECTION 3 : ÉQUIPEMENT DE DÉFENSE (Filtré par Actes débloqués) ---
+                        // --- SECTION 3 : ÉQUIPEMENT DE DÉFENSE ---
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Équipement de Défense 🛡️").font(.headline).foregroundColor(.white)
-                            
                             ForEach(2...5, id: \.self) { acteNum in
                                 if data.isActeUnlocked(acteNum) {
                                     let items = data.allItems.filter { $0.category == .defense && $0.acte == acteNum }
@@ -129,17 +128,47 @@ struct CombatView: View {
                     .padding()
                 }
             }
-        }
-        .alert(isPresented: $showCombatAlert) {
-            Alert(
-                title: Text("Combat"),
-                message: Text(combatAlertMessage),
-                dismissButton: .default(Text("OK"))
-            )
+            
+            // --- ALERT PERSONNALISÉE (Remplace le .alert natif) ---
+            if showCombatAlert {
+                // Fond sombre
+                Color.black.opacity(0.6)
+                    .edgesIgnoringSafeArea(.all)
+                    .zIndex(90)
+                    .transition(.opacity)
+                
+                // Fenêtre
+                VStack(spacing: 20) {
+                    Text("RÉSULTAT DU COMBAT")
+                        .font(.caption).bold().foregroundColor(.gray)
+                    
+                    Text(combatAlertMessage)
+                        .font(.body).multilineTextAlignment(.center).foregroundColor(.white)
+                        .padding(.horizontal)
+                    
+                    Button(action: {
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        withAnimation { showCombatAlert = false }
+                    }) {
+                        Text("OK")
+                            .fontWeight(.bold)
+                            .frame(width: 150, height: 45)
+                            .background(Color.orange)
+                            .foregroundColor(.black)
+                            .cornerRadius(10)
+                    }
+                }
+                .padding(25)
+                .background(Color(red: 0.15, green: 0.2, blue: 0.25)) // Fond solide pour l'alerte
+                .cornerRadius(20)
+                .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.orange.opacity(0.5), lineWidth: 2))
+                .shadow(radius: 20)
+                .zIndex(100)
+                .transition(.scale.combined(with: .opacity))
+            }
         }
     }
 }
-
 // MARK: - COMPOSANT LIGNE D'OBJET (Défini ici pour corriger l'erreur "In Scope")
 struct CombatItemRow: View {
     let item: ShopItem
