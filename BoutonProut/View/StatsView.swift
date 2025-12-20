@@ -1,9 +1,6 @@
 import SwiftUI
-import UIKit
 
 // MARK: - COMPOSANTS D'AFFICHAGE
-
-/// Ligne réutilisable pour afficher une statistique (Titre à gauche, Valeur à droite)
 struct StatRow: View {
     let title: String
     let value: String
@@ -17,36 +14,34 @@ struct StatRow: View {
                 .foregroundColor(AppStyle.accentColor)
         }
         .foregroundColor(.white)
-        .padding(.vertical, 12) // Augmenté pour un look plus premium
+        .padding(.vertical, 12)
         .padding(.horizontal, 15)
     }
 }
 
 // MARK: - VUE PRINCIPALE DES STATISTIQUES
-
 struct StatsView: View {
     @ObservedObject var data: GameData
     @ObservedObject var gameManager: GameManager
     
     @Environment(\.dismiss) var dismiss
     
-    // --- ÉTATS POUR LE PSEUDO ---
     @State private var showingNameEditAlert = false
     @State private var tempUsername: String = ""
     
-    // --- ÉTATS POUR LE MENU DEBUG SECRET ---
     @State private var debugClickCount = 0
     @State private var showingCodeAlert = false
     @State private var secretCodeInput = ""
     @State private var showingDebug = false
     
-    // --- LOGIQUE NARRATIVE DES ACTES ---
-    // Détermine le titre affiché selon l'acte le plus élevé débloqué
+    // --- LOGIQUE NARRATIVE DYNAMIQUE ---
     var currentEvolutionStage: String {
-        if data.isActeUnlocked(5) { return "Retraité Serein 👴" }
-        if data.isActeUnlocked(4) { return "Cadre Dynamique 💼" }
-        if data.isActeUnlocked(3) { return "Loveur Élégant ❤️" }
-        if data.isActeUnlocked(2) { return "Ado Rebelle 😈" }
+        // On récupère tous les IDs d'actes débloqués
+        let unlockedActes = data.actesInfo.keys.filter { data.isActeUnlocked($0) }
+        // On prend le plus élevé, sinon Acte 1 par défaut
+        if let highestActe = unlockedActes.max(), let info = data.actesInfo[highestActe] {
+            return info.title
+        }
         return "Bébé Innocent 👶"
     }
     
@@ -70,7 +65,7 @@ struct StatsView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 25) {
                         
-                        // --- SECTION 1 : STADE D'ÉVOLUTION
+                        // --- SECTION 1 : STADE D'ÉVOLUTION ---
                         VStack(spacing: 15) {
                             Text("TON STADE D'ÉVOLUTION")
                                 .font(.caption)
@@ -82,28 +77,28 @@ struct StatsView: View {
                                     .font(.title3)
                                     .fontWeight(.black)
                                     .foregroundColor(AppStyle.accentColor)
+                                    .multilineTextAlignment(.center)
                                 
                                 // --- BARRE DE PROGRESSION ---
-                                VStack(spacing: 5) {
+                                VStack(spacing: 8) {
                                     GeometryReader { geo in
                                         ZStack(alignment: .leading) {
-                                            // Fond de la barre
                                             RoundedRectangle(cornerRadius: 5)
                                                 .fill(Color.white.opacity(0.1))
-                                                .frame(height: 8)
+                                                .frame(height: 10)
                                             
-                                            // Remplissage
                                             RoundedRectangle(cornerRadius: 5)
                                                 .fill(AppStyle.accentColor)
-                                                .frame(width: geo.size.width * CGFloat(data.currentActeProgress), height: 8)
+                                                // Utilisation directe de la valeur calculée
+                                                .frame(width: geo.size.width * CGFloat(data.currentActeProgress), height: 10)
                                         }
                                     }
-                                    .frame(height: 8)
+                                    .frame(height: 10)
                                     
-                                    // Texte du pourcentage
                                     HStack {
-                                        Text("Complétion de l'acte")
+                                        Text("Progression vers l'âge suivant")
                                         Spacer()
+                                        // Affichage du pourcentage (lecture seule)
                                         Text("\(Int(data.currentActeProgress * 100))%")
                                             .fontWeight(.bold)
                                     }
@@ -116,6 +111,7 @@ struct StatsView: View {
                             .cornerRadius(15)
                         }
                         .padding(.top, 10)
+
                         // --- SECTION 2 : PROFIL ---
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Profil").font(AppStyle.subTitleFont).foregroundColor(.white)
@@ -142,7 +138,7 @@ struct StatsView: View {
                             .cornerRadius(12)
                         }
                         
-                        // --- SECTION 3 : DONNÉES FINANCIÈRES ---
+                        // --- SECTION 3 : ÉCONOMIE ---
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Économie").font(AppStyle.subTitleFont).foregroundColor(.white)
                             
@@ -170,21 +166,21 @@ struct StatsView: View {
                             .cornerRadius(12)
                         }
                         
-                        // Footer
-                        Text("Débloque de nouveaux objets dans la boutique pour évoluer vers l'âge suivant.")
-                            .font(.caption2)
-                            .foregroundColor(.gray)
-                            .multilineTextAlignment(.center)
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, 10)
+                        // Footer narratif dynamique
+                        if let nextActe = data.actesInfo.keys.filter({ !data.isActeUnlocked($0) }).min(),
+                           let info = data.actesInfo[nextActe] {
+                            Text("Prochaine étape : \(info.title)")
+                                .font(.caption2)
+                                .foregroundColor(.gray)
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, 10)
+                        }
                     }
                     .padding(AppStyle.defaultPadding)
                 }
             }
         }
-        
         // --- ALERTES ---
-        
         .alert("Modifier votre Nom", isPresented: $showingNameEditAlert) {
             TextField("Nouveau nom", text: $tempUsername)
             Button("Valider") {
@@ -195,7 +191,6 @@ struct StatsView: View {
             }
             Button("Annuler", role: .cancel) { }
         }
-        
         .alert("Accès Développeur", isPresented: $showingCodeAlert) {
             SecureField("Code secret", text: $secretCodeInput)
             Button("Valider") {
@@ -206,7 +201,6 @@ struct StatsView: View {
             }
             Button("Annuler", role: .cancel) { secretCodeInput = "" }
         }
-        
         .sheet(isPresented: $showingDebug) {
             DebugView(data: data)
         }

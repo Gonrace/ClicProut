@@ -122,10 +122,11 @@ struct ContentView: View {
                 Spacer()
                 
                 // --- BOUTON CENTRAL (LE CACA) ---
-                Text("💩")
+                Text("💩") // On laisse le caca de base
                     .font(.system(size: 110))
                     .shadow(color: .yellow.opacity(0.8), radius: 30)
-                    .scaleEffect(data.calculatedPoopScale)
+                    // On garde une scale liée au score pour donner une sensation de progression
+                    .scaleEffect(1.0 + min(CGFloat(data.totalFartCount) / 100000.0, 0.4))
                     .scaleEffect(scale)
                     .scaleEffect(autoScale)
                     .onTapGesture { self.clickAction() }
@@ -214,7 +215,7 @@ struct ContentView: View {
         // FENÊTRES (SHEETS)
         .sheet(isPresented: $showingStats) { StatsView(data: data, gameManager: gameManager).interactiveDismissDisabled(true) }
         .sheet(isPresented: $showingLeaderboard) { LeaderboardView(gameManager: gameManager, data: data).interactiveDismissDisabled(true) }
-        .sheet(isPresented: $showingCombat) { CombatView(data: data).interactiveDismissDisabled(true) }
+        .sheet(isPresented: $showingCombat) { InteractionsView(data: data, gameManager: gameManager).interactiveDismissDisabled(true) }
         .sheet(isPresented: $showingInventory) { InventoryView(data: data).interactiveDismissDisabled(true) }
         .sheet(isPresented: $showingShop) { ShopView(data: data).interactiveDismissDisabled(true) }
         .sheet(isPresented: $showingDebug) { DebugView(data: data).interactiveDismissDisabled(true) }
@@ -262,6 +263,7 @@ struct ContentView: View {
     }
     
     func generatePoopRain(count: Int) {
+        guard fallingPoops.count < 60 else { return }
         let screen = UIScreen.main.bounds
         for _ in 0..<count {
             let p = FallingPoop(

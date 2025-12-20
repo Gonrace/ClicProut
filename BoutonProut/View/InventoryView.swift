@@ -1,7 +1,6 @@
 import SwiftUI
 
 // MARK: - VUE INVENTAIRE
-// Cette vue regroupe les objets possédés par le joueur, classés par Acte (âge).
 struct InventoryView: View {
     @ObservedObject var data: GameData
     @Environment(\.dismiss) var dismiss
@@ -13,38 +12,42 @@ struct InventoryView: View {
         case cosmetics = "Mon Style"
     }
     
-    // Filtre les objets possédés fonctionnels (Hors Combat)
+    // 1. Filtre les objets fonctionnels (Production, Outils, Améliorations)
     var ownedFunctionalItems: [ShopItem] {
-        return data.allItems.filter { item in
+        data.allItems.filter { item in
             let isFunctional = (
                 item.category == .production ||
                 item.category == .amelioration ||
                 item.category == .outil ||
                 item.category == .jalonNarratif
             )
-            // On vérifie que l'item est possédé ET qu'il fait partie des catégories ci-dessus
             return data.itemLevels[item.name, default: 0] > 0 && isFunctional
         }
     }
     
-    // Filtre les objets possédés cosmétiques
+    // 2. Filtre TOUS les cosmétiques (Peu importe le type, tant que c'est visuel/auditif)
     var ownedCosmeticItems: [ShopItem] {
-        return data.allItems.filter { item in
-            let isCosmetic = (item.category == .skin || item.category == .sound || item.category == .background || item.category == .music)
+        data.allItems.filter { item in
+            let isCosmetic = (
+                item.category == .skin ||
+                item.category == .sound ||
+                item.category == .background
+            )
             return data.itemLevels[item.name, default: 0] > 0 && isCosmetic
         }
     }
     
     var body: some View {
         ZStack {
-            AppStyle.secondaryBackground.edgesIgnoringSafeArea(.all)
+            // Utilisation de ton StyleConstants
+            AppStyle.primaryBackground.edgesIgnoringSafeArea(.all)
             
             VStack(spacing: 0) {
-                // Barre de titre personnalisée
+                // Utilisation de ta CustomTitleBar unifiée
                 CustomTitleBar(title: "Mes Objets 🗃️", onDismiss: { dismiss() })
                 
-                // Sélecteur d'onglet (Progression vs Cosmétiques)
-                Picker("Type d'Inventaire", selection: $selectedTab) {
+                // Sélecteur d'onglet
+                Picker("Type", selection: $selectedTab) {
                     Text(InventoryCategory.functional.rawValue).tag(InventoryCategory.functional)
                     Text(InventoryCategory.cosmetics.rawValue).tag(InventoryCategory.cosmetics)
                 }
@@ -56,13 +59,9 @@ struct InventoryView: View {
                     VStack(alignment: .leading, spacing: 25) {
                         
                         if selectedTab == .functional {
-                            
                             if !ownedFunctionalItems.isEmpty {
-                                // On boucle sur les 5 actes pour organiser l'inventaire par "âge"
                                 ForEach(1...5, id: \.self) { acteNum in
                                     let itemsInActe = ownedFunctionalItems.filter { $0.acte == acteNum }
-                                    
-                                    // On n'affiche la section que si le joueur possède des objets de cet acte
                                     if !itemsInActe.isEmpty {
                                         InventorySection(title: acteTitle(for: acteNum)) {
                                             ForEach(itemsInActe, id: \.name) { item in
@@ -76,40 +75,32 @@ struct InventoryView: View {
                                     .inventoryEmptyText()
                             }
                             
-                        } else if selectedTab == .cosmetics {
-                            // Affichage des cosmétiques possédés
+                        } else {
+                            // ONGLET STYLE : On affiche tout en vrac
                             if !ownedCosmeticItems.isEmpty {
-                                InventorySection(title: "Apparence & Sons") {
+                                InventorySection(title: "Personnalisation") {
                                     ForEach(ownedCosmeticItems, id: \.name) { item in
                                         CosmeticRow(item: item, data: data)
                                     }
                                 }
                             } else {
-                                Text("Aucun cosmétique débloqué.")
+                                Text("Aucun style débloqué pour le moment.")
                                     .inventoryEmptyText()
                             }
                         }
                     }
-                    .padding(AppStyle.defaultPadding)
+                    .padding(.horizontal, AppStyle.defaultPadding)
                 }
             }
         }
     }
     
-    // Helper pour transformer le numéro d'acte en nom narratif
     func acteTitle(for acte: Int) -> String {
-        switch acte {
-            case 1: return "Acte I : Bébé Merde 👶"
-            case 2: return "Acte II : L'Âge Ingrat 😈"
-            case 3: return "Acte III : Le Loveur ❤️"
-            case 4: return "Acte IV : Monsieur Pro 💼"
-            case 5: return "Acte V : La Retraite 👴"
-            default: return "Acte Inconnu"
+        return data.actesInfo[acte]?.title ?? "Acte \(acte)"
         }
     }
-}
 
-// MARK: - STRUCTURES D'AIDE
+// MARK: - COMPOSANTS INTERNES UTILISANT APPSTYLE
 
 struct InventorySection<Content: View>: View {
     let title: String
@@ -125,7 +116,7 @@ struct InventorySection<Content: View>: View {
             Text(title)
                 .font(AppStyle.subTitleFont)
                 .fontWeight(.bold)
-                .foregroundColor(.white)
+                .foregroundColor(AppStyle.accentColor)
                 .padding(.leading, 5)
             
             VStack(spacing: 1) {
@@ -156,7 +147,6 @@ struct InventoryRow: View {
             
             Spacer()
             
-            // Affichage du statut simplifié
             if item.category == .production || item.category == .outil {
                 Text("Lv. \(data.itemLevels[item.name, default: 0])")
                     .fontWeight(.bold)
@@ -164,7 +154,7 @@ struct InventoryRow: View {
             } else {
                 Text("Acquis ✅")
                     .font(.caption)
-                    .foregroundColor(.green)
+                    .foregroundColor(AppStyle.positiveColor)
             }
         }
         .padding(12)
@@ -175,7 +165,6 @@ struct InventoryRow: View {
 struct CosmeticRow: View {
     let item: ShopItem
     @ObservedObject var data: GameData
-    @State private var isActive: Bool = true // Ici tu pourras lier à la logique de skin de GameData
     
     var body: some View {
         HStack {
@@ -185,28 +174,32 @@ struct CosmeticRow: View {
                 Text(item.name)
                     .font(.headline)
                     .foregroundColor(.white)
-                Text(item.category.rawValue)
-                    .font(.caption)
-                    .foregroundColor(.orange)
+                // Affiche la catégorie brute du CSV (skin, sound, etc.)
+                Text(item.category.rawValue.capitalized)
+                    .font(.caption2)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.white.opacity(0.2))
+                    .cornerRadius(4)
+                    .foregroundColor(.white)
             }
             
             Spacer()
             
-            Toggle("", isOn: $isActive)
-                .labelsHidden()
-                .tint(AppStyle.accentColor)
+            Text("Débloqué")
+                .font(.caption)
+                .foregroundColor(AppStyle.positiveColor)
         }
         .padding(12)
         .background(AppStyle.listRowBackground)
     }
 }
 
-// Helper pour le style des messages vides
 extension View {
     func inventoryEmptyText() -> some View {
-        self
-        .foregroundColor(AppStyle.secondaryTextColor)
-        .padding(.top, 40)
-        .frame(maxWidth: .infinity, alignment: .center)
+        self.font(AppStyle.bodyFont)
+            .foregroundColor(AppStyle.secondaryTextColor)
+            .padding(.top, 40)
+            .frame(maxWidth: .infinity, alignment: .center)
     }
 }

@@ -44,50 +44,42 @@ struct ShopView: View {
                     VStack(alignment: .leading, spacing: AppStyle.defaultPadding) {
                         
                         if selectedTab == .tools {
-                            // --- ONGLET PRODUCTION (ACTES) ---
-                            ActeSection(title: "Acte I : Les Débuts 👶", acte: 1, data: data)
+                            // --- ONGLET PRODUCTION (DYNAMIQUE PAR ACTE + TRIÉ) ---
+                            let sortedActeIDs = data.actesInfo.keys.sorted()
                             
-                            if data.isActeUnlocked(2) {
-                                ActeSection(title: "Acte II : La Croissance 😈", acte: 2, data: data)
-                            } else {
-                                LockedActeRow(acteNumber: 1)
-                            }
-                            
-                            if data.isActeUnlocked(3) {
-                                ActeSection(title: "Acte III : L'Amour ❤️", acte: 3, data: data)
-                            } else if data.isActeUnlocked(2) {
-                                LockedActeRow(acteNumber: 2)
-                            }
-                            
-                            if data.isActeUnlocked(4) {
-                                ActeSection(title: "Acte IV : L'Héritage 🌌", acte: 4, data: data)
-                            } else if data.isActeUnlocked(3) {
-                                LockedActeRow(acteNumber: 3)
-                            }
-                            
-                            if data.isActeUnlocked(5) {
-                                ActeSection(title: "Acte V : Le Grand Repos 👴", acte: 5, data: data)
-                            } else if data.isActeUnlocked(4) {
-                                LockedActeRow(acteNumber: 4)
+                            ForEach(sortedActeIDs, id: \.self) { acteID in
+                                if let info = data.actesInfo[acteID] {
+                                    if data.isActeUnlocked(acteID) {
+                                        ActeSection(title: info.title, acte: acteID, data: data)
+                                    } else {
+                                        if acteID == 1 || data.isActeUnlocked(acteID - 1) {
+                                            LockedActeRow(acteNumber: acteID)
+                                        }
+                                    }
+                                }
                             }
 
                         } else if selectedTab == .cosmetics {
-                            // --- ONGLET COSMÉTIQUES (FILTRÉS PAR ACTE) ---
-                            ForEach(1...5, id: \.self) { acteNum in
-                                if data.isActeUnlocked(acteNum) {
-                                    ShopSection(title: "Style - Acte \(acteNum)") {
-                                        ForEach(cosmeticShopItems.filter { $0.acte == acteNum }, id: \.name) { item in
-                                            if data.itemLevels[item.name, default: 0] > 0 {
-                                                ItemBoughtRow(item: item)
-                                            } else {
-                                                ItemRow(item: item, data: data)
-                                            }
+                            // --- ONGLET COSMÉTIQUES (TRIÉS PAR ACTE PUIS PRIX) ---
+                            let cosmetics = data.allItems.filter {
+                                $0.category == .skin || $0.category == .sound || $0.category == .background
+                            }.sorted {
+                                if $0.acte != $1.acte { return $0.acte < $1.acte }
+                                return $0.baseCost < $1.baseCost
+                            }
+                            
+                            if !cosmetics.isEmpty {
+                                ShopSection(title: "Personnalisation") {
+                                    ForEach(cosmetics, id: \.name) { item in
+                                        if data.itemLevels[item.name, default: 0] > 0 {
+                                            ItemBoughtRow(item: item)
+                                        } else {
+                                            ItemRow(item: item, data: data)
                                         }
                                     }
                                 }
                             }
                         } else if selectedTab == .currency {
-                            // --- ONGLET PQ D'OR ---
                             IAPShopView(data: data)
                         }
                     }
@@ -115,7 +107,6 @@ struct ShopSection<Content: View>: View {
     }
 }
 
-// MARK: - COMPOSANT DE SECTION PAR ACTE (MIS À JOUR)
 struct ActeSection: View {
     let title: String
     let acte: Int
@@ -123,35 +114,34 @@ struct ActeSection: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 15) {
-            // Titre de l'Acte
             Text(title)
                 .font(AppStyle.subTitleFont)
                 .bold()
                 .foregroundColor(.white)
                 .padding(.leading, 5)
             
-            // --- GROUPE 1 : OUTILS DE CLIC ---
+            // FILTRAGE ET TRI PAR PRIX POUR CHAQUE SOUS-CATÉGORIE
             categoryGroup(
                 title: "Outils de Clic 🖱️",
-                items: standardShopItems.filter { $0.acte == acte && $0.category == .outil }
+                items: data.allItems.filter { $0.acte == acte && $0.category == .outil }
+                    .sorted(by: { $0.baseCost < $1.baseCost })
             )
             
-            // --- GROUPE 2 : BÂTIMENTS DE PRODUCTION ---
             categoryGroup(
                 title: "Bâtiments de Production 🏭",
-                items: standardShopItems.filter { $0.acte == acte && $0.category == .production }
+                items: data.allItems.filter { $0.acte == acte && $0.category == .production }
+                    .sorted(by: { $0.baseCost < $1.baseCost })
             )
             
-            // --- GROUPE 3 : AMÉLIORATIONS & JALONS ---
             categoryGroup(
                 title: "Améliorations & Jalons ✨",
-                items: standardShopItems.filter { $0.acte == acte && ($0.category == .amelioration || $0.category == .jalonNarratif) }
+                items: data.allItems.filter { $0.acte == acte && ($0.category == .amelioration || $0.category == .jalonNarratif) }
+                    .sorted(by: { $0.baseCost < $1.baseCost })
             )
         }
         .padding(.bottom, 10)
     }
     
-    // Fonction helper pour créer les sous-sections
     @ViewBuilder
     private func categoryGroup(title: String, items: [ShopItem]) -> some View {
         if !items.isEmpty {
@@ -181,12 +171,13 @@ struct ActeSection: View {
         }
     }
 }
+
 struct LockedActeRow: View {
     let acteNumber: Int
     var body: some View {
         HStack {
             Image(systemName: "lock.fill").foregroundColor(.orange)
-            Text("Terminez 90% de l'Acte \(acteNumber) pour débloquer la suite")
+            Text("Terminez l'Acte \(acteNumber - 1) pour débloquer la suite")
                 .font(.caption).foregroundColor(.gray)
         }
         .frame(maxWidth: .infinity).padding().background(Color.white.opacity(0.05)).cornerRadius(10)
@@ -200,7 +191,8 @@ struct ItemRow: View {
     var displayCost: Int {
         let level = data.itemLevels[item.name, default: 0]
         if item.category == .production || item.category == .outil {
-            return Int((Double(item.baseCost) * pow(1.2, Double(level))).rounded())
+            // Utilisation du multiplicateur de prix dynamique venant du Cloud
+            return Int((Double(item.baseCost) * pow(data.config.priceMultiplier, Double(level))).rounded())
         }
         return item.baseCost
     }

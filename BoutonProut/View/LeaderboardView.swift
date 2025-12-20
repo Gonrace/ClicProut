@@ -5,10 +5,16 @@ struct LeaderboardView: View {
     @ObservedObject var data: GameData
     @Environment(\.dismiss) var dismiss
     
+    // Filtre pour les attaques que l'on a déjà en stock
     var ownedAttacks: [ShopItem] {
         return data.allItems.filter { item in
             item.category == .perturbateur && data.itemLevels[item.name, default: 0] > 0
         }
+    }
+    
+    // --- NOUVEAU : Liste de tous les cadeaux disponibles dans le Cloud ---
+    var availableGifts: [ShopItem] {
+        return data.allItems.filter { $0.category == .kado }
     }
     
     var body: some View {
@@ -47,35 +53,41 @@ struct LeaderboardView: View {
                                     Text("#\(index + 1)")
                                         .font(.system(.subheadline, design: .monospaced))
                                         .fontWeight(.bold)
-                                        .frame(width: 50, alignment: .leading)
+                                        .frame(width: 40, alignment: .leading)
                                         .foregroundColor(isMe ? .black : AppStyle.accentColor)
                                     
-                                    // 2. NOM (Prend l'espace restant)
+                                    // 2. NOM
                                     Text(entry.username)
                                         .font(.subheadline)
                                         .fontWeight(isMe ? .black : .medium)
-                                        .lineLimit(1) // Évite le retour à la ligne
+                                        .lineLimit(1)
                                         .foregroundColor(isMe ? .black : .white)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                     
-                                    // 3. ACTIONS (Si disponible)
-                                    if !ownedAttacks.isEmpty && !isMe {
-                                        attackMenu(for: entry)
+                                    // 3. ACTIONS
+                                    HStack(spacing: 12) {
+                                        // --- ATTAQUES (Si en stock) ---
+                                        if !ownedAttacks.isEmpty && !isMe {
+                                            attackMenu(for: entry)
+                                        }
+                                        
+                                        // --- NOUVEAU : CADEAUX (Si Gentillesse débloquée) ---
+                                        if data.isGentillesseUnlocked && !isMe {
+                                            giftMenu(for: entry)
+                                        }
                                     }
                                     
                                     // 4. SCORE
                                     Text("\(entry.score)")
                                         .font(.system(.subheadline, design: .monospaced))
                                         .fontWeight(.bold)
-                                        .frame(width: 80, alignment: .trailing)
+                                        .frame(width: 70, alignment: .trailing)
                                         .foregroundColor(isMe ? .black : .white)
                                 }
                                 .padding(.vertical, 12)
                                 .padding(.horizontal, 15)
-                                // On utilise une couleur pleine si c'est nous, sinon le fond de ligne habituel
                                 .background(isMe ? AppStyle.accentColor : AppStyle.listRowBackground)
                                 .cornerRadius(10)
-                                // Petite bordure dorée pour l'utilisateur actuel
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 10)
                                         .stroke(isMe ? Color.white.opacity(0.5) : Color.clear, lineWidth: 1)
@@ -91,7 +103,7 @@ struct LeaderboardView: View {
         }
     }
     
-    // MARK: - COMPOSANT MENU ATTAQUE
+    // MARK: - MENU ATTAQUE (Existant)
     @ViewBuilder
     private func attackMenu(for entry: LeaderboardEntry) -> some View {
         Menu {
@@ -112,7 +124,44 @@ struct LeaderboardView: View {
             Image(systemName: "bolt.circle.fill")
                 .font(.title3)
                 .foregroundColor(.red)
-                .padding(4)
+        }
+    }
+    
+    // MARK: - NOUVEAU : COMPOSANT MENU CADEAU
+    @ViewBuilder
+    private func giftMenu(for entry: LeaderboardEntry) -> some View {
+        Menu {
+            Section("Offrir un cadeau à \(entry.username)") {
+                ForEach(availableGifts, id: \.id) { gift in
+                    let canAfford = gift.currency == .pets ? data.totalFartCount >= gift.baseCost : data.goldenToiletPaper >= gift.baseCost
+                    
+                    Button {
+                        // 1. Déduction du prix
+                        if gift.currency == .pets { data.totalFartCount -= gift.baseCost }
+                        else { data.goldenToiletPaper -= gift.baseCost }
+                        
+                        // 2. Envoi via le GameManager (vers Firebase)
+                        gameManager.sendGift(
+                            targetUserID: entry.id,
+                            giftItem: gift,
+                            senderUsername: gameManager.username
+                        )
+                        
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    } label: {
+                        HStack {
+                            Text("\(gift.emoji) \(gift.name)")
+                            Spacer()
+                            Text("\(gift.baseCost) \(gift.currency == .pets ? "💩" : "👑")")
+                        }
+                    }
+                    .disabled(!canAfford) // On ne peut pas cliquer si on n'a pas assez de sous
+                }
+            }
+        } label: {
+            Image(systemName: "gift.circle.fill")
+                .font(.title3)
+                .foregroundColor(.green)
         }
     }
 }

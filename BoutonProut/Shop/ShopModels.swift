@@ -1,55 +1,61 @@
 import Foundation
 
-// Type de monnaie
 enum CurrencyType: String, Codable {
-    case pets = "Pets 💩"
-    case goldenPaper = "PQ d'Or 👑"
+    case pets = "pets"
+    case goldenPaper = "goldenPaper"
 }
 
-// Catégorie de l'objet (ADAPTATION DES ANCIENS NOMS)
 enum ItemCategory: String, Codable {
-    case production = "Bâtiment de Pet"       // Auto PPS (Ancien .building)
-    case outil = "Outil de Clic"              // Manuel PPC (Ancien .clicker)
-    case amelioration = "Amélioration"        // Multiplicateurs (Ancien .upgrade)
-    case jalonNarratif = "Jalon Narratif"     // NOUVEAU : Histoire (Ancien .narratif)
-    
-    //Attaque/Defense
-    case defense      = "Défense"
-    case perturbateur = "Attaque"
-    
-    // Cosmétiques
-    case skin = "Skin"
-    case sound = "Pack Son"
-    case background = "Fond d'écran"
-    case music = "Musique"
+    case production = "production"
+    case outil = "outil"
+    case amelioration = "amelioration"
+    case jalonNarratif = "jalonNarratif"
+    case defense = "defense"
+    case perturbateur = "perturbateur"
+    case skin = "skin"
+    case sound = "sound"
+    case background = "background"
+    case kado = "kado"
 }
 
-// Structure unique de l'objet (MISE À JOUR)
 struct ShopItem: Identifiable, Codable {
     var id = UUID()
     let name: String
-    let description: String
+    let category: ItemCategory
+    let acte: Int
     let baseCost: Int
     let currency: CurrencyType
     
-    let category: ItemCategory
+    // Stats
+    var dpsRate: Double = 0.0          // PPS_Rate
+    var clickMultiplier: Int = 0       // PPC_Bonus
+    
+    // Combat (Indices 7 à 10 du CSV)
+    var multPPS: Double = 1.0
+    var multPPC: Double = 1.0
+    var lossRate: Double = 0.0
+    var durationSec: Int = 0
+    
     let emoji: String
+    let description: String
     
-    // Stats de jeu (Optionnel, 0 par défaut)
-    var dpsRate: Double = 0.0
-    var clickMultiplier: Int = 0
-    
-    // Logique de Progression / Attaque / Défense
     var requiredItem: String? = nil
     var requiredItemCount: Int? = nil
-    var cosmeticID: String? = nil
-    
-    // Propriétés pour la Logique Avancée (Defense / Attaque)
     var effectID: String? = nil
-    var durationMinutes: Int = 0
-    var isConsumable: Bool = false
     
-    // --- ON DÉPLACE ACTE ICI ---
-    // En le mettant à la fin, il correspondra à l'ordre de tes listes
-    let acte: Int
+    var isConsumable: Bool {
+        return category == .perturbateur || category == .defense
+    }
+
+    // Helper pour le GameManager
+    var durationMinutes: Int {
+        return durationSec > 0 ? max(1, durationSec / 60) : 0
+    }
+}
+
+struct ActeMetadata: Codable {
+    let id: Int
+    let title: String
+    let description: String
+    let threshold: Double
 }
