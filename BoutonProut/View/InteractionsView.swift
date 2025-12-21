@@ -9,121 +9,149 @@ struct InteractionsView: View {
     @State private var combatAlertMessage: String = ""
     @State private var showCombatAlert: Bool = false
     
-    // États pour le Hub Social
-    @State private var selectedTab = 0 // 0 = Guerre, 1 = Cadeaux
-    @State private var selectedPlayerID: String? = nil // Cible de l'action
+    // État pour le Hub Social
+    @State private var selectedTab = 0 // 0 = Attaquer, 1 = Offrir
     
     var body: some View {
         ZStack {
             AppStyle.secondaryBackground.edgesIgnoringSafeArea(.all)
             
             VStack(spacing: 0) {
-                // Barre de titre
-                CustomTitleBar(title: selectedTab == 0 ? "Centre de Combat ⚔️" : "Boutique Cadeaux 🎁", onDismiss: { dismiss() })
-                
-                // --- LE SÉLECTEUR D'ONGLETS ---
-                Picker("", selection: $selectedTab) {
-                    Text("⚔️ Guerre").tag(0)
-                    if data.isGentillesseUnlocked {
-                        Text("🎁 Cadeaux").tag(1)
-                    }
+                // 1. BARRE DE TITRE FIXE
+                CustomTitleBar(title: "WC Publics 🚽", onDismiss: { dismiss() })
+                                
+                // 2. SOUS-TITRE DYNAMIQUE (Optionnel, pour le style)
+                if data.hasDiscoveredInteractions {
+                    Text(selectedTab == 0 ? "ZONE DE GUERRE ⚔️" : "SERVICE DE DON 🎁")
+                        .font(.system(size: 10, weight: .black))
+                        .foregroundColor(selectedTab == 0 ? .red : .green)
+                        .padding(.bottom, 5)
                 }
-                .pickerStyle(SegmentedPickerStyle())
-                .padding()
 
-                ScrollView {
+                // 2. VÉRIFICATION DE LA DÉCOUVERTE
+                if !data.isMechanceteUnlocked && !data.isGentillesseUnlocked {
+                    // --- ÉTAT VIDE : WC PUBLICS DÉCOUVERTS MAIS INUTILISABLES ---
                     VStack(spacing: 25) {
-                        
-                        if selectedTab == 0 {
-                            // ==========================================
-                            // ONGLET 0 : GUERRE (TON CODE ORIGINAL)
-                            // ==========================================
+                        Spacer()
                             
-                            // SECTION 1 : ALERTES (ATTAQUES SUBIES)
-                            threatsSection
+                        // Icône thématique
+                        Text("🚽")
+                            .font(.system(size: 80))
+                            .shadow(radius: 10)
                             
-                            // SECTION 2 : ARSENAL D'ATTAQUE
-                            VStack(alignment: .leading, spacing: 10) {
-                                Text("Arsenal d'Attaque 🧨").font(.headline).foregroundColor(.white)
-                                ForEach(2...5, id: \.self) { acteNum in
-                                    if data.isActeUnlocked(acteNum) {
-                                        let items = data.allItems.filter { $0.category == .perturbateur && $0.acte == acteNum }
-                                        if !items.isEmpty {
-                                            Text("Objets de l'Acte \(acteNum)").font(.caption).foregroundColor(.gray)
-                                            ForEach(items, id: \.name) { item in
-                                                CombatItemRow(item: item, data: data, gameManager: gameManager)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                        VStack(spacing: 15) {
+                            Text("Vous venez de débloquer les WC Publics !")
+                                .font(.title3)
+                                .fontWeight(.black)
+                                .foregroundColor(.white)
+                                
+                            Text("C'est ici que l'on interagit avec les autres prouteurs, mais vous n'avez pas encore découvert comment vous y prendre...")
+                                .font(.subheadline)
+                                .multilineTextAlignment(.center)
+                                .foregroundColor(.gray)
+                                .padding(.horizontal, 40)
+                        }
+                            
+                            // Petit indicateur visuel pour aider le joueur
+                        Text("(Allez à la Boutique pour trouver de quoi vous occuper)")
+                            .font(.caption)
+                            .italic()
+                            .foregroundColor(AppStyle.accentColor.opacity(0.7))
+                            .padding(.top, 10)
 
-                            // SECTION 3 : ÉQUIPEMENT DE DÉFENSE
-                            VStack(alignment: .leading, spacing: 10) {
-                                Text("Équipement de Défense 🛡️").font(.headline).foregroundColor(.white)
-                                ForEach(2...5, id: \.self) { acteNum in
-                                    if data.isActeUnlocked(acteNum) {
-                                        let items = data.allItems.filter { $0.category == .defense && $0.acte == acteNum }
-                                        if !items.isEmpty {
-                                            Text("Objets de l'Acte \(acteNum)").font(.caption).foregroundColor(.gray)
-                                            ForEach(items, id: \.name) { item in
-                                                CombatItemRow(item: item, data: data, gameManager: gameManager)
+                        Spacer()
+                    }
+                } else {
+                    // --- INTERFACE DÉBLOQUÉE ---
+                    
+                    // On n'affiche le picker que si les DEUX sont débloqués
+                    if data.isMechanceteUnlocked && data.isGentillesseUnlocked {
+                        Picker("", selection: $selectedTab) {
+                            Text("⚔️ Attaquer").tag(0)
+                            Text("🎁 Offrir").tag(1)
+                        }
+                        .pickerStyle(SegmentedPickerStyle())
+                        .padding()
+                    }
+
+                    ScrollView {
+                        VStack(spacing: 25) {
+                            
+                            if selectedTab == 0 && data.isMechanceteUnlocked {
+                                // ==========================================
+                                // ONGLET : ATTAQUER (GUERRE)
+                                // ==========================================
+                                
+                                // SECTION 1 : ALERTES (ATTAQUES SUBIES)
+                                threatsSection
+                                
+                                // SECTION 2 : BOUTIQUE ARSENAL
+                                VStack(alignment: .leading, spacing: 10) {
+                                    Text("Boutique d'Arsenal 🧨").font(.headline).foregroundColor(.white)
+                                    Text("Achetez des armes pour les utiliser dans le Classement.").font(.caption).foregroundColor(.gray)
+                                    
+                                    ForEach(2...5, id: \.self) { acteNum in
+                                        if data.isActeUnlocked(acteNum) {
+                                            let items = data.allItems.filter { $0.category == .perturbateur && $0.acte == acteNum }
+                                            if !items.isEmpty {
+                                                Text("Acte \(acteNum)").font(.caption).foregroundColor(.gray).padding(.top, 5)
+                                                ForEach(items, id: \.name) { item in
+                                                    CombatItemRow(item: item, data: data, gameManager: gameManager)
+                                                }
                                             }
                                         }
                                     }
                                 }
-                            }
-                            
-                        } else {
-                            // ==========================================
-                            // ONGLET 1 : LA BOUTIQUE CADEAUX
-                            // ==========================================
-                            VStack(alignment: .leading, spacing: 20) {
-                                Text("1. À qui faire plaisir ?").font(.headline).foregroundColor(.white)
-                                
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack(spacing: 12) {
-                                        ForEach(gameManager.leaderboard.filter { $0.id != gameManager.userID }) { player in
-                                            VStack {
-                                                Button(action: { selectedPlayerID = player.id }) {
-                                                    ZStack {
-                                                        Circle()
-                                                            .fill(selectedPlayerID == player.id ? AppStyle.accentColor : Color.white.opacity(0.1))
-                                                            .frame(width: 50, height: 50)
-                                                        Text(player.username.prefix(1).uppercased())
-                                                            .foregroundColor(selectedPlayerID == player.id ? .black : .white)
-                                                            .fontWeight(.bold)
-                                                    }
+
+                                // SECTION 3 : ÉQUIPEMENT DE DÉFENSE
+                                VStack(alignment: .leading, spacing: 10) {
+                                    Text("Équipement de Défense 🛡️").font(.headline).foregroundColor(.white)
+                                    ForEach(2...5, id: \.self) { acteNum in
+                                        if data.isActeUnlocked(acteNum) {
+                                            let items = data.allItems.filter { $0.category == .defense && $0.acte == acteNum }
+                                            if !items.isEmpty {
+                                                ForEach(items, id: \.name) { item in
+                                                    CombatItemRow(item: item, data: data, gameManager: gameManager)
                                                 }
-                                                Text(player.username).font(.system(size: 10)).foregroundColor(selectedPlayerID == player.id ? AppStyle.accentColor : .gray).lineLimit(1)
-                                            }.frame(width: 65)
+                                            }
                                         }
                                     }
                                 }
                                 
-                                Divider().background(Color.white.opacity(0.1))
-                                
-                                if let targetID = selectedPlayerID {
-                                    let targetName = gameManager.leaderboard.first(where: { $0.id == targetID })?.username ?? ""
-                                    Text("2. Cadeaux pour \(targetName)").font(.subheadline).foregroundColor(.gray)
+                            } else if selectedTab == 1 && data.isGentillesseUnlocked {
+                                // ==========================================
+                                // ONGLET : OFFRIR (CADEAUX)
+                                // ==========================================
+                                VStack(alignment: .leading, spacing: 10) {
+                                    Text("Boutique de Cadeaux 🎁").font(.headline).foregroundColor(.white)
+                                    Text("Achetez un cadeau unique pour l'offrir depuis le Classement.").font(.caption).foregroundColor(.gray)
                                     
                                     let gifts = data.allItems.filter { $0.category == .kado }
-                                    ForEach(gifts) { gift in
-                                        GiftShopRow(gift: gift, data: data, gameManager: gameManager, targetID: targetID)
+                                    
+                                    if gifts.isEmpty {
+                                        Text("Aucun cadeau disponible...").foregroundColor(.gray).padding()
+                                    } else {
+                                        ForEach(gifts) { gift in
+                                            // On utilise la même ligne que pour l'arsenal (limite à 1 exemplaire)
+                                            CombatItemRow(item: gift, data: data, gameManager: gameManager)
+                                        }
                                     }
-                                } else {
-                                    Text("Sélectionne un ami ci-dessus").foregroundColor(.gray).frame(maxWidth: .infinity).padding(.top, 40)
                                 }
                             }
                         }
+                        .padding()
                     }
-                    .padding()
                 }
             }
             
-            // L'alerte personnalisée (Ton code original)
             if showCombatAlert {
                 combatResultOverlay
+            }
+        }
+        .onAppear {
+            // Ajustement automatique de l'onglet au démarrage
+            if !data.isMechanceteUnlocked && data.isGentillesseUnlocked {
+                selectedTab = 1
             }
         }
     }
@@ -186,39 +214,7 @@ struct InteractionsView: View {
     }
 }
 
-// MARK: - COMPOSANT LIGNE BOUTIQUE CADEAUX
-struct GiftShopRow: View {
-    let gift: ShopItem
-    @ObservedObject var data: GameData
-    @ObservedObject var gameManager: GameManager
-    let targetID: String
-    
-    var body: some View {
-        let cost = gift.baseCost
-        let canAfford = gift.currency == .pets ? data.totalFartCount >= cost : data.goldenToiletPaper >= cost
-        
-        HStack {
-            Text(gift.emoji).font(.title)
-            VStack(alignment: .leading) {
-                Text(gift.name).foregroundColor(.white).bold()
-                Text(gift.description).font(.system(size: 10)).foregroundColor(.gray)
-            }
-            Spacer()
-            Button(action: {
-                if gift.currency == .pets { data.totalFartCount -= cost }
-                else { data.goldenToiletPaper -= cost }
-                gameManager.sendGift(targetUserID: targetID, giftItem: gift, senderUsername: gameManager.username)
-                UINotificationFeedbackGenerator().notificationOccurred(.success)
-            }) {
-                Text("\(cost) \(gift.currency == .goldenPaper ? "👑" : "💩")")
-                    .padding(8).background(canAfford ? Color.green : Color.gray).foregroundColor(canAfford ? .black : .white).cornerRadius(8)
-            }
-            .disabled(!canAfford)
-        }.padding(10).background(AppStyle.listRowBackground).cornerRadius(10)
-    }
-}
-
-// MARK: - COMPOSANT LIGNE D'OBJET (Arsenal/Défense)
+// MARK: - COMPOSANT LIGNE D'OBJET (Arsenal/Défense/Cadeaux)
 struct CombatItemRow: View {
     let item: ShopItem
     @ObservedObject var data: GameData
@@ -240,8 +236,9 @@ struct CombatItemRow: View {
                 _ = data.attemptPurchase(item: item)
             }) {
                 HStack(spacing: 4) {
-                    if isOwned { Text("POSSÉDÉ ✅") }
-                    else {
+                    if isOwned {
+                        Text("POSSÉDÉ ✅")
+                    } else {
                         Text("\(item.baseCost)")
                         Text(item.currency == .goldenPaper ? "👑" : "💩")
                     }

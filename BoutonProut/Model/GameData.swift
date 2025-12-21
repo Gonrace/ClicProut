@@ -28,6 +28,7 @@ class GameData: ObservableObject {
     @Published var allItems: [ShopItem] = []
     @Published var actesInfo: [Int: ActeMetadata] = [:]
     @Published var config = GlobalConfig()
+    @Published var isMaintenanceMode: Bool = false // Réinjecté de la V1
     
     // MARK: - ÉCONOMIE ET MONNAIES (Local)
     @AppStorage("TotalFartCount") var totalFartCount: Int = 0
@@ -52,7 +53,7 @@ class GameData: ObservableObject {
     init() {
         self.itemLevels = GameData.loadItemLevels()
         startFirebaseSync()
-        startGiftSync()
+        startGiftSync() // Activé (V2)
         setupAudioSession()
         
         NotificationCenter.default.addObserver(
@@ -63,6 +64,7 @@ class GameData: ObservableObject {
 
     // MARK: - SYNC FIREBASE
     func startFirebaseSync() {
+        // Observer les items du shop
         ref.child("shop_items").observe(.value) { snapshot in
             guard let value = snapshot.value as? [String: [String: Any]] else { return }
             let items = value.values.compactMap { self.parseItem(dict: $0) }
@@ -72,16 +74,14 @@ class GameData: ObservableObject {
             }
         }
         
-        // Observer les Actes (Version robuste)
+        // Observer les Actes (Version robuste V1 qui gère les Tableaux et Dictionnaires)
         ref.child("metadata_actes").observe(.value) { snapshot in
             var fetchedDict: [String: [String: Any]] = [:]
             
             // Firebase peut renvoyer soit [Dict], soit [Array] si les clés sont des chiffres
             if let array = snapshot.value as? [Any] {
                 for (index, val) in array.enumerated() {
-                    if let dict = val as? [String: Any] {
-                        fetchedDict["\(index)"] = dict
-                    }
+                    if let dict = val as? [String: Any] { fetchedDict["\(index)"] = dict }
                 }
             } else if let dict = snapshot.value as? [String: [String: Any]] {
                 fetchedDict = dict
@@ -89,7 +89,6 @@ class GameData: ObservableObject {
 
             var newActes: [Int: ActeMetadata] = [:]
             for (_, dict) in fetchedDict {
-                // Correction : On s'assure que l'ID est bien extrait
                 let rawID = dict["Acte"] ?? 0
                 if let id = Int("\(rawID)"), id > 0 {
                     newActes[id] = ActeMetadata(
@@ -100,13 +99,13 @@ class GameData: ObservableObject {
                     )
                 }
             }
-            
             DispatchQueue.main.async {
                 self.actesInfo = newActes
-                print("📖 Actes chargés : \(newActes.count)")
+                print("📖 Actes chargés : \(newActes.count)") // Print réinjecté
             }
         }
 
+        // Observer la logique PVP
         ref.child("logic_pvp").observe(.value) { snapshot in
             guard let value = snapshot.value as? [String: [String: Any]] else { return }
             var logic: [String: [String]] = [:]
@@ -119,30 +118,22 @@ class GameData: ObservableObject {
             CombatLogic.defensesForAttack = logic
         }
         
-        // Observer la Config Globale
-            ref.child("global_config").observe(.value) { snapshot in
-                guard let value = snapshot.value as? [String: [String: Any]] else { return }
-                DispatchQueue.main.async {
-                    // Multiplicateur de prix
-                    if let pMult = Double("\(value["price_multiplier"]?["Valeur"] ?? 1.2)") {
-                        self.config.priceMultiplier = pMult
-                    }
-                        
-                    // Puissance de clic de base
-                    if let bClick = Int("\(value["base_click_value"]?["Valeur"] ?? 1)") {
-                        self.config.baseClickValue = bClick
-                    }
-                        
-                    // Statut du serveur (Exemple d'utilisation)
-                    let status = value["server_status"]?["Valeur"] as? String ?? "online"
-                    if status == "maintenance" {
-                        print("⚠️ Le serveur est en mode maintenance !")
-                        // Ici tu pourrais lever un flag pour bloquer l'accès au PVP
-                    }
-                        
-                    print("⚙️ Config Cloud synchronisée")
+        // Observer la Config Globale + Maintenance (V1)
+        ref.child("global_config").observe(.value) { snapshot in
+            guard let value = snapshot.value as? [String: [String: Any]] else { return }
+            DispatchQueue.main.async {
+                if let pMult = Double("\(value["price_multiplier"]?["Valeur"] ?? 1.2)") { self.config.priceMultiplier = pMult }
+                if let bClick = Int("\(value["base_click_value"]?["Valeur"] ?? 1)") { self.config.baseClickValue = bClick }
+                
+                // Sécurité Maintenance réinjectée
+                let status = value["server_status"]?["Valeur"] as? String ?? "online"
+                self.isMaintenanceMode = (status == "maintenance")
+                if self.isMaintenanceMode {
+                    print("⚠️ Le serveur est en mode maintenance !")
                 }
+                print("⚙️ Config Cloud synchronisée")
             }
+        }
     }
 
     private func parseItem(dict: [String: Any]) -> ShopItem? {
@@ -222,7 +213,7 @@ class GameData: ObservableObject {
         return Int(power * globalAttackMultiplier * soundMultiplier)
     }
 
-    // MARK: - PROGRESSION NARRATIVE
+    // MARK: - PROGRESSION ET INTERFACE
     var currentActeProgress: Double {
         let currentActe = actesInfo.keys.filter { isActeUnlocked($0) }.max() ?? 1
         let itemsInActe = allItems.filter {
@@ -233,13 +224,10 @@ class GameData: ObservableObject {
         return Double(ownedCount) / Double(itemsInActe.count)
     }
     
-    // MARK: - AFFICHAGE INTERFACE
-        
     // Cette variable crée la liste d'emojis (ex: "💩 5", "🚽 2") pour l'inventaire rapide
     var ownedItemsDisplay: [String] {
         return allItems.filter { item in
             let level = itemLevels[item.name, default: 0]
-            // On n'affiche que les bâtiments de production et les outils possédés
             return level > 0 && (item.category == .production || item.category == .outil)
         }.map { item in
             let level = itemLevels[item.name, default: 0]
@@ -247,15 +235,46 @@ class GameData: ObservableObject {
         }
     }
 
+    // MARK: - LOGIQUE DE DÉCOUVERTE
+    var isMechanceteUnlocked: Bool {
+        return itemLevels.keys.contains { itemName in
+            let itemData = allItems.first(where: { $0.name == itemName })
+            return itemData?.effectID == "unlock_combat" && itemLevels[itemName, default: 0] > 0
+        }
+    }
+
+    var isGentillesseUnlocked: Bool {
+        return itemLevels.keys.contains { itemName in
+            let itemData = allItems.first(where: { $0.name == itemName })
+            return itemData?.effectID == "unlock_kado" && itemLevels[itemName, default: 0] > 0
+        }
+    }
+
+    var hasDiscoveredInteractions: Bool {
+        isMechanceteUnlocked || isGentillesseUnlocked
+    }
+    
+    // Indique si le joueur est actuellement sous le coup d'une attaque
+    var isUnderAttack: Bool { !currentAttacks.isEmpty }
+    
+    var currentAttacks: [ActiveAttackInfo] {
+        activeAttacks.values.filter { $0.expiryDate > Date() }.sorted(by: { $0.expiryDate < $1.expiryDate })
+    }
+
     // MARK: - MOTEUR D'ACHAT
     func attemptPurchase(item: ShopItem) -> Bool {
         let level = itemLevels[item.name, default: 0]
         if item.isConsumable && level >= 1 { return false }
-        let isSingleLevel = (item.category == .amelioration || item.category == .defense || item.category == .jalonNarratif)
+        
+        // Catégories à niveau unique (ajout de .kado de la V2)
+        let isSingleLevel = (item.category == .amelioration || item.category == .defense || item.category == .jalonNarratif || item.category == .kado)
+        
         let cost = (item.category == .production || item.category == .outil) ?
             Int(Double(item.baseCost) * pow(config.priceMultiplier, Double(level))) : item.baseCost
+            
         if isSingleLevel && level > 0 { return false }
         if let req = item.requiredItem, itemLevels[req, default: 0] < (item.requiredItemCount ?? 0) { return false }
+        
         if item.currency == .pets {
             guard totalFartCount >= cost else { return false }
             totalFartCount -= cost
@@ -263,104 +282,14 @@ class GameData: ObservableObject {
             guard goldenToiletPaper >= cost else { return false }
             goldenToiletPaper -= cost
         }
+        
         if isSingleLevel { itemLevels[item.name] = 1 }
         else { itemLevels[item.name, default: 0] += 1 }
+        
         if item.category == .production { autoFarterUpdateCount += 1 }
         return true
     }
-    
-    // Variable pour lister les attaques actives
-    var currentAttacks: [ActiveAttackInfo] {
-        activeAttacks.values
-            .filter { $0.expiryDate > Date() }
-            .sorted(by: { $0.expiryDate < $1.expiryDate })
-    }
-    // VÉRIFICATION DE L'EFFET UNLOCK_KADO ---
-    var isGentillesseUnlocked: Bool {
-        // On cherche dans itemLevels si l'item qui possède l'Effect_ID "unlock_kado" est au niveau 1
-        return itemLevels.keys.contains { itemName in
-            let itemData = allItems.first(where: { $0.name == itemName })
-            return itemData?.effectID == "unlock_kado" && itemLevels[itemName, default: 0] > 0
-        }
-    }
-    // MARK: - GESTION DES CADEAUX (KDO)
-        
-    // Écouteur Firebase pour les cadeaux
-    func startGiftSync() {
-        guard let userID = UIDevice.current.identifierForVendor?.uuidString else { return }
-            
-        ref.child("users").child(userID).child("gifts").observe(.childAdded) { snapshot in
-            // On récupère les infos du cadeau
-            guard let value = snapshot.value as? [String: Any],
-                    let giftID = value["giftID"] as? String,
-                    let sender = value["senderName"] as? String else { return }
-                
-            // --- CONDITION : ON NE TRAITE LE CADEAU QUE SI L'ITEM EST ACHETÉ ---
-            if self.isGentillesseUnlocked {
-                DispatchQueue.main.async {
-                    self.processIncomingGift(giftID: giftID, from: sender)
-                    // On supprime le cadeau de la base après l'avoir "consommé"
-                    snapshot.ref.removeValue()
-                }
-            } else {
-                print("🎁 Cadeau en attente : débloquez la Gentillesse pour le recevoir.")
-            }
-        }
-    }
 
-    private func processIncomingGift(giftID: String, from: String) {
-        // On cherche l'objet dans allItems via son effectID
-        guard let giftItem = allItems.first(where: { $0.effectID == giftID }) else {
-            print("⚠️ Cadeau inconnu (ID: \(giftID))")
-            return
-        }
-
-        let nomKdo = giftItem.name
-
-        DispatchQueue.main.async {
-            if giftItem.durationSec > 0 {
-                // CAS A : Boost temporaire (on utilise la structure des attaques car petsPerSecond les gère déjà)
-                let info = ActiveAttackInfo(
-                    id: giftID + "_\(UUID().uuidString)",
-                    attackerName: from,
-                    weaponName: nomKdo,
-                    expiryDate: Date().addingTimeInterval(TimeInterval(giftItem.durationSec)),
-                    multPPS: giftItem.multPPS,
-                    multPPC: giftItem.multPPC
-                )
-                self.activeAttacks[info.id] = info
-                print("🚀 Cadeau reçu ! '\(nomKdo)' envoyé par \(from).")
-
-            } else {
-                // CAS B : Gain instantané
-                if giftItem.dpsRate > 0 {
-                    let montant = Int(giftItem.dpsRate)
-                    self.totalFartCount += montant
-                    self.lifetimeFarts += montant
-                    print("🎁 Cadeau reçu ! '\(nomKdo)' de \(from) : +\(montant) Pets !")
-                }
-                    
-                if giftItem.clickMultiplier > 0 {
-                    let montantOr = giftItem.clickMultiplier
-                    self.goldenToiletPaper += montantOr
-                    print("👑 Cadeau reçu ! '\(nomKdo)' de \(from) : +\(montantOr) PQ d'Or !")
-                }
-            }
-        }
-    }
-
-    // MARK: - DEBLOCAGE ATTAQUE
-
-    // Indique si le joueur est actuellement sous le coup d'une attaque
-    var isUnderAttack: Bool {
-        !currentAttacks.isEmpty
-    }
-
-    // (Optionnel mais utile) Retourne l'attaque la plus urgente
-    var activeAttackCount: Int {
-        currentAttacks.count
-    }
-    
     func tryDefend(with item: ShopItem) -> String {
         guard item.category == .defense, let defenseID = item.effectID else { return "Pas une défense !" }
         guard itemLevels[item.name, default: 0] > 0 else { return "Plus de stock !" }
@@ -383,20 +312,67 @@ class GameData: ObservableObject {
         return Double(owned.count) / Double(itemsPrecedent.count) >= threshold
     }
 
+    // MARK: - GESTION DES CADEAUX (RECEPTION V2)
+    func startGiftSync() {
+        guard let userID = UserDefaults.standard.string(forKey: "userID") else { return }
+        ref.child("users").child(userID).child("gifts").observe(.childAdded) { snapshot in
+            guard let value = snapshot.value as? [String: Any],
+                  let giftID = value["giftID"] as? String,
+                  let sender = value["senderName"] as? String else { return }
+            
+            DispatchQueue.main.async {
+                self.processIncomingGift(giftID: giftID, from: sender)
+                snapshot.ref.removeValue() // Supprime le cadeau pour ne pas le recevoir 2 fois
+            }
+        }
+    }
+
+    private func processIncomingGift(giftID: String, from: String) {
+        guard let giftItem = allItems.first(where: { $0.effectID == giftID }) else { return }
+        DispatchQueue.main.async {
+            // Un cadeau peut donner des Pets ou du PQ doré selon ses stats
+            if giftItem.dpsRate > 0 { self.totalFartCount += Int(giftItem.dpsRate) }
+            if giftItem.clickMultiplier > 0 { self.goldenToiletPaper += giftItem.clickMultiplier }
+            print("🎁 Cadeau reçu : \(giftItem.name) de \(from)")
+        }
+    }
+
+    // MARK: - GESTION DES ATTAQUES ENTRANTES
+    func applyAttack(effectID: String, duration: Int, attackerName: String, weaponName: String) {
+        guard let itemData = allItems.first(where: { $0.effectID == effectID }) else {
+            print("⚠️ Attaque reçue mais l'item \(effectID) est inconnu.")
+            return
+        }
+        
+        let info = ActiveAttackInfo(
+            id: effectID,
+            attackerName: attackerName,
+            weaponName: weaponName,
+            // duration est en minutes dans Firebase, on convertit en secondes pour iOS
+            expiryDate: Date().addingTimeInterval(TimeInterval(duration * 60)),
+            multPPS: itemData.multPPS,
+            multPPC: itemData.multPPC
+        )
+        
+        DispatchQueue.main.async {
+            self.lastAttackerName = attackerName
+            self.lastAttackWeapon = weaponName
+            self.activeAttacks[effectID] = info
+            print("🚀 Attaque appliquée : \(weaponName) par \(attackerName)")
+        }
+    }
+
+    // MARK: - SYSTEME & RESET
     func hardReset() {
-        totalFartCount = 0
-        lifetimeFarts = 0
-        goldenToiletPaper = 0
-        itemLevels.removeAll()
-        activeAttacks.removeAll()
+        totalFartCount = 0; lifetimeFarts = 0; goldenToiletPaper = 0
+        itemLevels.removeAll(); activeAttacks.removeAll()
         UserDefaults.standard.removeObject(forKey: "SavedItemLevels")
+        print("🧹 Hard Reset effectué")
     }
 
     private func setupAudioSession() {
-        do {
-            try AVAudioSession.sharedInstance().setCategory(.ambient, mode: .default)
-            try AVAudioSession.sharedInstance().setActive(true)
-        } catch { print("Audio Error") }
+        try? AVAudioSession.sharedInstance().setCategory(.ambient, mode: .default)
+        try? AVAudioSession.sharedInstance().setActive(true)
     }
 
     private static func saveItemLevels(_ levels: [String: Int]) {
@@ -407,37 +383,7 @@ class GameData: ObservableObject {
 
     private static func loadItemLevels() -> [String: Int] {
         if let data = UserDefaults.standard.data(forKey: "SavedItemLevels"),
-           let decoded = try? JSONDecoder().decode([String: Int].self, from: data) {
-            return decoded
-        }
+           let decoded = try? JSONDecoder().decode([String: Int].self, from: data) { return decoded }
         return [:]
-    }
-    // MARK: - GESTION DES ATTAQUES ENTRANTES
-        
-    func applyAttack(effectID: String, duration: Int, attackerName: String, weaponName: String) {
-        // On cherche les statistiques de l'arme (multPPS, multPPC) dans allItems
-        // allItems contient maintenant les données reçues de Firebase (ex-CSV)
-        guard let itemData = allItems.first(where: { $0.effectID == effectID }) else {
-            print("⚠️ Attaque reçue mais l'item \(effectID) est inconnu dans la boutique.")
-            return
-        }
-            
-        let info = ActiveAttackInfo(
-            id: effectID,
-            attackerName: attackerName,
-            weaponName: weaponName,
-            // duration est en minutes dans Firebase, on convertit en secondes pour iOS
-            expiryDate: Date().addingTimeInterval(TimeInterval(duration * 60)),
-            multPPS: itemData.multPPS,
-            multPPC: itemData.multPPC
-        )
-            
-        DispatchQueue.main.async {
-            self.lastAttackerName = attackerName
-            self.lastAttackWeapon = weaponName
-            // On ajoute l'attaque au dictionnaire : cela déclenche le recalcul auto des PPS/PPC
-            self.activeAttacks[effectID] = info
-            print("🚀 Attaque appliquée : \(weaponName) par \(attackerName)")
-        }
     }
 }

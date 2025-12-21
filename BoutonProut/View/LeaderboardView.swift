@@ -5,16 +5,18 @@ struct LeaderboardView: View {
     @ObservedObject var data: GameData
     @Environment(\.dismiss) var dismiss
     
-    // Filtre pour les attaques que l'on a déjà en stock
+    // 1. Filtre pour les attaques que l'on a déjà en stock
     var ownedAttacks: [ShopItem] {
         return data.allItems.filter { item in
             item.category == .perturbateur && data.itemLevels[item.name, default: 0] > 0
         }
     }
     
-    // --- NOUVEAU : Liste de tous les cadeaux disponibles dans le Cloud ---
-    var availableGifts: [ShopItem] {
-        return data.allItems.filter { $0.category == .kado }
+    // 2. Filtre pour les cadeaux que l'on a déjà en stock
+    var ownedGifts: [ShopItem] {
+        return data.allItems.filter { item in
+            item.category == .kado && data.itemLevels[item.name, default: 0] > 0
+        }
     }
     
     var body: some View {
@@ -56,7 +58,7 @@ struct LeaderboardView: View {
                                         .frame(width: 40, alignment: .leading)
                                         .foregroundColor(isMe ? .black : AppStyle.accentColor)
                                     
-                                    // 2. NOM
+                                    // 2. NOM (Prend l'espace restant)
                                     Text(entry.username)
                                         .font(.subheadline)
                                         .fontWeight(isMe ? .black : .medium)
@@ -64,16 +66,19 @@ struct LeaderboardView: View {
                                         .foregroundColor(isMe ? .black : .white)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                     
-                                    // 3. ACTIONS
+                                    // 3. ACTIONS (Conditionnées aux déblocages)
                                     HStack(spacing: 12) {
-                                        // --- ATTAQUES (Si en stock) ---
-                                        if !ownedAttacks.isEmpty && !isMe {
-                                            attackMenu(for: entry)
-                                        }
-                                        
-                                        // --- NOUVEAU : CADEAUX (Si Gentillesse débloquée) ---
-                                        if data.isGentillesseUnlocked && !isMe {
-                                            giftMenu(for: entry)
+                                        // On n'affiche les boutons que si ce n'est pas nous
+                                        if !isMe {
+                                            // Méchanceté (Attaques)
+                                            if data.isMechanceteUnlocked {
+                                                attackMenu(for: entry)
+                                            }
+                                            
+                                            // Gentillesse (Cadeaux)
+                                            if data.isGentillesseUnlocked {
+                                                giftMenu(for: entry)
+                                            }
                                         }
                                     }
                                     
@@ -103,65 +108,61 @@ struct LeaderboardView: View {
         }
     }
     
-    // MARK: - MENU ATTAQUE (Existant)
+    // MARK: - MENU ATTAQUE (Consomme le stock)
     @ViewBuilder
     private func attackMenu(for entry: LeaderboardEntry) -> some View {
         Menu {
-            ForEach(ownedAttacks, id: \.id) { attack in
-                Button {
-                    gameManager.sendAttack(
-                        targetUserID: entry.id,
-                        item: attack,
-                        senderUsername: gameManager.username
-                    )
-                    data.itemLevels[attack.name] = 0 // Consomme l'objet
-                    UINotificationFeedbackGenerator().notificationOccurred(.success)
-                } label: {
-                    Label("\(attack.name) \(attack.emoji)", systemImage: "bolt.fill")
+            if ownedAttacks.isEmpty {
+                Text("Aucune arme en stock").foregroundColor(.gray)
+            } else {
+                ForEach(ownedAttacks, id: \.id) { attack in
+                    Button {
+                        gameManager.sendAttack(
+                            targetUserID: entry.id,
+                            item: attack,
+                            senderUsername: gameManager.username
+                        )
+                        data.itemLevels[attack.name, default: 0] -= 1
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    } label: {
+                        Label("\(attack.name) \(attack.emoji)", systemImage: "bolt.fill")
+                    }
                 }
             }
         } label: {
             Image(systemName: "bolt.circle.fill")
                 .font(.title3)
                 .foregroundColor(.red)
+                .opacity(ownedAttacks.isEmpty ? 0.4 : 1.0) // Grisé si vide
         }
     }
-    
-    // MARK: - NOUVEAU : COMPOSANT MENU CADEAU
+
+    // MARK: - MENU OFFRIR (Consomme le stock)
     @ViewBuilder
     private func giftMenu(for entry: LeaderboardEntry) -> some View {
         Menu {
-            Section("Offrir un cadeau à \(entry.username)") {
-                ForEach(availableGifts, id: \.id) { gift in
-                    let canAfford = gift.currency == .pets ? data.totalFartCount >= gift.baseCost : data.goldenToiletPaper >= gift.baseCost
-                    
+            if ownedGifts.isEmpty {
+                Text("Aucun cadeau en stock").foregroundColor(.gray)
+            } else {
+                ForEach(ownedGifts, id: \.id) { gift in
                     Button {
-                        // 1. Déduction du prix
-                        if gift.currency == .pets { data.totalFartCount -= gift.baseCost }
-                        else { data.goldenToiletPaper -= gift.baseCost }
-                        
-                        // 2. Envoi via le GameManager (vers Firebase)
                         gameManager.sendGift(
                             targetUserID: entry.id,
                             giftItem: gift,
                             senderUsername: gameManager.username
                         )
-                        
+                        data.itemLevels[gift.name, default: 0] -= 1
                         UINotificationFeedbackGenerator().notificationOccurred(.success)
                     } label: {
-                        HStack {
-                            Text("\(gift.emoji) \(gift.name)")
-                            Spacer()
-                            Text("\(gift.baseCost) \(gift.currency == .pets ? "💩" : "👑")")
-                        }
+                        Label("\(gift.name) \(gift.emoji)", systemImage: "gift.fill")
                     }
-                    .disabled(!canAfford) // On ne peut pas cliquer si on n'a pas assez de sous
                 }
             }
         } label: {
             Image(systemName: "gift.circle.fill")
                 .font(.title3)
                 .foregroundColor(.green)
+                .opacity(ownedGifts.isEmpty ? 0.4 : 1.0) // Grisé si vide
         }
     }
 }

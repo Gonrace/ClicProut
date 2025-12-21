@@ -161,7 +161,7 @@ struct ContentView: View {
                     // 2. Classement
                     NavButton(icon: "trophy.fill", action: { showingLeaderboard = true }, color: .orange)
                     
-                    // 3. COMBAT (CENTRAL - ÉCLAIR)
+                    // 3. INTERACTION VIEW (WC Public)
                     // On n'affiche le bouton de combat QUE si l'acte 2 est débloqué
                     if data.isActeUnlocked(2) {
                         Button(action: { showingCombat = true }) {
@@ -170,7 +170,7 @@ struct ContentView: View {
                                     .fill(data.isUnderAttack ? Color.red : Color.gray.opacity(0.5))
                                     .frame(width: 55, height: 55)
                                     .shadow(color: data.isUnderAttack ? .red.opacity(0.6) : .black.opacity(0.3), radius: 8)
-                                Image(systemName: "bolt.fill")
+                                Image(systemName: "toilet.fill")
                                     .foregroundColor(.white)
                                     .font(.title2)
                             }
