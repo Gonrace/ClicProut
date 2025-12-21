@@ -4,6 +4,7 @@ import Foundation
 import MediaPlayer
 import AVFoundation
 import FirebaseDatabase
+import AudioToolbox
 
 // MARK: - STRUCTURES D'AIDE
 struct ActiveAttackInfo: Identifiable {
@@ -13,6 +14,14 @@ struct ActiveAttackInfo: Identifiable {
     let expiryDate: Date
     let multPPS: Double
     let multPPC: Double
+}
+
+struct ReceivedGiftInfo: Identifiable {
+    let id = UUID()
+    let senderName: String
+    let giftName: String
+    let emoji: String
+    let date: Date
 }
 
 struct GlobalConfig {
@@ -42,9 +51,12 @@ class GameData: ObservableObject {
     @AppStorage("LifetimeFarts") var lifetimeFarts: Int = 0
     @AppStorage("GoldenToiletPaper") var goldenToiletPaper: Int = 0
     
-    // MARK: - ÉTAT DU JEU ET COMBAT
+    // MARK: - ÉTAT DU JEU ET ECHANGE
     @Published var autoFarterUpdateCount: Int = 0
+        // Reception Attaque / Kado
     @Published var activeAttacks: [String: ActiveAttackInfo] = [:]
+    @Published var receivedGifts: [ReceivedGiftInfo] = []
+    
     @Published var petAccumulator: Double = 0.0
     
     @Published var lastAttackerName: String = ""
@@ -63,7 +75,6 @@ class GameData: ObservableObject {
     init() {
         self.itemLevels = GameData.loadItemLevels()
         startFirebaseSync()
-        startGiftSync()
         setupAudioSession()
         
         NotificationCenter.default.addObserver(
@@ -265,6 +276,14 @@ class GameData: ObservableObject {
             return "\(item.emoji) \(level)"
         }
     }
+    func isActeUnlocked(_ acte: Int) -> Bool {
+        if acte == 1 { return true }
+        let itemsPrecedent = allItems.filter { $0.acte == acte - 1 && ($0.category == .production || $0.category == .outil) }
+        if itemsPrecedent.isEmpty { return false }
+        let owned = itemsPrecedent.filter { itemLevels[$0.name, default: 0] > 0 }
+        let threshold = actesInfo[acte]?.threshold ?? 0.9
+        return Double(owned.count) / Double(itemsPrecedent.count) >= threshold
+    }
 
     // MARK: - LOGIQUE DE DÉCOUVERTE
     var isMechanceteUnlocked: Bool {
@@ -284,13 +303,7 @@ class GameData: ObservableObject {
     var hasDiscoveredInteractions: Bool {
         isMechanceteUnlocked || isGentillesseUnlocked
     }
-    
-    // Indique si le joueur est actuellement sous le coup d'une attaque
-    var isUnderAttack: Bool { !currentAttacks.isEmpty }
-    
-    var currentAttacks: [ActiveAttackInfo] {
-        activeAttacks.values.filter { $0.expiryDate > Date() }.sorted(by: { $0.expiryDate < $1.expiryDate })
-    }
+
 
     // MARK: - MOTEUR D'ACHAT
     func attemptPurchase(item: ShopItem) -> Bool {
@@ -322,78 +335,106 @@ class GameData: ObservableObject {
         return true
     }
 
-    func tryDefend(with item: ShopItem) -> String {
-        guard item.category == .defense, let defenseID = item.effectID else { return "Pas une défense !" }
-        guard itemLevels[item.name, default: 0] > 0 else { return "Plus de stock !" }
-        itemLevels[item.name, default: 0] -= 1
-        for (activeAttackID, _) in activeAttacks {
-            if CombatLogic.canDefend(attackID: activeAttackID, defenseID: defenseID) {
-                activeAttacks.removeValue(forKey: activeAttackID)
-                return "Défense réussie !"
-            }
+    // MARK: - LOGIQUE DES INTERACTIONS (Calculs)
+        
+        /// Indique si le joueur est actuellement sous le coup d'une attaque
+        var isUnderAttack: Bool { !currentAttacks.isEmpty }
+        
+        /// Liste des attaques actives triées par expiration
+        var currentAttacks: [ActiveAttackInfo] {
+            activeAttacks.values
+                .filter { $0.expiryDate > Date() }
+                .sorted(by: { $0.expiryDate < $1.expiryDate })
         }
-        return !activeAttacks.isEmpty ? "Échec... Objet perdu !" : "Utilisé dans le vide !"
-    }
+        
+        /// Tente de contrer une attaque avec un objet de défense
+        func tryDefend(with item: ShopItem) -> String {
+            guard item.category == .defense, let defenseID = item.effectID else { return "Pas une défense !" }
+            guard itemLevels[item.name, default: 0] > 0 else { return "Plus de stock !" }
+            
+            itemLevels[item.name, default: 0] -= 1
+            
+            for (activeAttackID, _) in activeAttacks {
+                if CombatLogic.canDefend(attackID: activeAttackID, defenseID: defenseID) {
+                    activeAttacks.removeValue(forKey: activeAttackID)
+                    return "Défense réussie !"
+                }
+            }
+            return !activeAttacks.isEmpty ? "Échec... Objet perdu !" : "Utilisé dans le vide !"
+        }
 
-    func isActeUnlocked(_ acte: Int) -> Bool {
-        if acte == 1 { return true }
-        let itemsPrecedent = allItems.filter { $0.acte == acte - 1 && ($0.category == .production || $0.category == .outil) }
-        if itemsPrecedent.isEmpty { return false }
-        let owned = itemsPrecedent.filter { itemLevels[$0.name, default: 0] > 0 }
-        let threshold = actesInfo[acte]?.threshold ?? 0.9
-        return Double(owned.count) / Double(itemsPrecedent.count) >= threshold
-    }
+        // MARK: - RÉCEPTION DES INTERACTIONS (Signaux Externes)
 
-    // MARK: - GESTION DES CADEAUX (RECEPTION V2)
-    func startGiftSync() {
-        guard let userID = UserDefaults.standard.string(forKey: "userID") else { return }
-        ref.child("users").child(userID).child("gifts").observe(.childAdded) { snapshot in
-            guard let value = snapshot.value as? [String: Any],
-                  let giftID = value["giftID"] as? String,
-                  let sender = value["senderName"] as? String else { return }
+        /// Applique un cadeau reçu depuis le SocialManager
+        func applyGift(giftID: String, from: String) {
+            print("🎁 Signal Cadeau reçu pour ID: \(giftID)")
+            
+            guard let giftItem = allItems.first(where: { $0.effectID == giftID }) else {
+                print("❌ ERREUR: L'ID cadeau '\(giftID)' est introuvable dans allItems!")
+                return
+            }
             
             DispatchQueue.main.async {
-                self.processIncomingGift(giftID: giftID, from: sender)
-                snapshot.ref.removeValue() // Supprime le cadeau pour ne pas le recevoir 2 fois
+                // 1. Mise à jour de l'économie
+                if giftItem.dpsRate > 0 { self.totalFartCount += Int(giftItem.dpsRate) }
+                if giftItem.clickMultiplier > 0 { self.goldenToiletPaper += giftItem.clickMultiplier }
+                
+                // 2. Mise à jour de l'historique
+                let newGift = ReceivedGiftInfo(senderName: from, giftName: giftItem.name, emoji: giftItem.emoji, date: Date())
+                self.receivedGifts.insert(newGift, at: 0)
+                
+                // 3. Affichage de la notification
+                self.pendingNotification = GameNotification(
+                    id: UUID().uuidString,
+                    title: "🎁 CADEAU REÇU !",
+                    message: "\(from) t'a envoyé : \(giftItem.name) ! \(giftItem.emoji)",
+                    conditionType: "direct",
+                    conditionValue: ""
+                )
+                self.showNotificationOverlay = true
+                
+                AudioServicesPlaySystemSound(1002)
             }
         }
-    }
 
-    private func processIncomingGift(giftID: String, from: String) {
-        guard let giftItem = allItems.first(where: { $0.effectID == giftID }) else { return }
-        DispatchQueue.main.async {
-            // Un cadeau peut donner des Pets ou du PQ doré selon ses stats
-            if giftItem.dpsRate > 0 { self.totalFartCount += Int(giftItem.dpsRate) }
-            if giftItem.clickMultiplier > 0 { self.goldenToiletPaper += giftItem.clickMultiplier }
-            print("🎁 Cadeau reçu : \(giftItem.name) de \(from)")
+        /// Applique une attaque reçue depuis le SocialManager
+        func applyAttack(effectID: String, duration: Int, attackerName: String, weaponName: String) {
+            guard let itemData = allItems.first(where: { $0.effectID == effectID }) else {
+                print("⚠️ Attaque reçue mais l'item \(effectID) est inconnu.")
+                return
+            }
+            
+            let info = ActiveAttackInfo(
+                id: effectID,
+                attackerName: attackerName,
+                weaponName: weaponName,
+                expiryDate: Date().addingTimeInterval(TimeInterval(duration * 60)),
+                multPPS: itemData.multPPS,
+                multPPC: itemData.multPPC
+            )
+            
+            DispatchQueue.main.async {
+                // 1. Mise à jour de l'état technique
+                self.lastAttackerName = attackerName
+                self.lastAttackWeapon = weaponName
+                self.activeAttacks[effectID] = info
+                
+                // 2. Affichage de la notification
+                self.pendingNotification = GameNotification(
+                    id: UUID().uuidString,
+                    title: "🚀 ATTAQUE REÇUE !",
+                    message: "\(attackerName) t'a balancé : \(weaponName) ! \(itemData.emoji)",
+                    conditionType: "direct",
+                    conditionValue: ""
+                )
+                self.showNotificationOverlay = true
+                
+                AudioServicesPlaySystemSound(1005)
+                print("🚀 Attaque appliquée : \(weaponName) par \(attackerName)")
+            }
         }
-    }
-
-    // MARK: - GESTION DES ATTAQUES ENTRANTES
-    func applyAttack(effectID: String, duration: Int, attackerName: String, weaponName: String) {
-        guard let itemData = allItems.first(where: { $0.effectID == effectID }) else {
-            print("⚠️ Attaque reçue mais l'item \(effectID) est inconnu.")
-            return
-        }
-        
-        let info = ActiveAttackInfo(
-            id: effectID,
-            attackerName: attackerName,
-            weaponName: weaponName,
-            // duration est en minutes dans Firebase, on convertit en secondes pour iOS
-            expiryDate: Date().addingTimeInterval(TimeInterval(duration * 60)),
-            multPPS: itemData.multPPS,
-            multPPC: itemData.multPPC
-        )
-        
-        DispatchQueue.main.async {
-            self.lastAttackerName = attackerName
-            self.lastAttackWeapon = weaponName
-            self.activeAttacks[effectID] = info
-            print("🚀 Attaque appliquée : \(weaponName) par \(attackerName)")
-        }
-    }
-
+    
+    
     // MARK: - SYSTEME & RESET
     func hardReset() {
         totalFartCount = 0; lifetimeFarts = 0; goldenToiletPaper = 0
@@ -418,6 +459,9 @@ class GameData: ObservableObject {
            let decoded = try? JSONDecoder().decode([String: Int].self, from: data) { return decoded }
         return [:]
     }
+    
+    
+    
     // MARK: - SYSTEME DE NOTIFICATIONS DYNAMIQUES
         
         // Calcule l'acte actuel (utile pour les conditions)

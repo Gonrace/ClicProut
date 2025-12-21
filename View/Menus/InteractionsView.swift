@@ -3,6 +3,7 @@ import SwiftUI
 struct InteractionsView: View {
     @ObservedObject var data: GameData
     @ObservedObject var gameManager: GameManager
+    @ObservedObject var socialManager: SocialManager
     @Environment(\.dismiss) var dismiss
     
     // États pour les alertes de combat
@@ -83,7 +84,7 @@ struct InteractionsView: View {
                                 // ==========================================
                                 
                                 // SECTION 1 : ALERTES (ATTAQUES SUBIES)
-                                threatsSection
+                                threatsSection // Ton composant existant pour les attaques
                                 
                                 // SECTION 2 : BOUTIQUE ARSENAL
                                 VStack(alignment: .leading, spacing: 10) {
@@ -122,6 +123,49 @@ struct InteractionsView: View {
                                 // ==========================================
                                 // ONGLET : OFFRIR (CADEAUX)
                                 // ==========================================
+                                
+                                // SECTION 1 : HISTORIQUE DES CADEAUX REÇUS (Symétrique aux Menaces)
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text("Cadeaux reçus 🎁").font(.headline).foregroundColor(.white)
+                                    
+                                    if data.receivedGifts.isEmpty {
+                                        Text("Aucun cadeau reçu pour le moment.")
+                                            .font(.caption)
+                                            .foregroundColor(.gray)
+                                            .padding()
+                                            .frame(maxWidth: .infinity)
+                                            .background(Color.white.opacity(0.05))
+                                            .cornerRadius(12)
+                                    } else {
+                                        // On affiche les 5 derniers cadeaux reçus
+                                        ForEach(data.receivedGifts.prefix(5)) { gift in
+                                            HStack(spacing: 15) {
+                                                Text(gift.emoji)
+                                                    .font(.system(size: 30))
+                                                
+                                                VStack(alignment: .leading, spacing: 2) {
+                                                    Text(gift.senderName)
+                                                        .font(.system(size: 14, weight: .bold))
+                                                        .foregroundColor(.green)
+                                                    Text("t'a offert un(e) \(gift.giftName)")
+                                                        .font(.system(size: 12))
+                                                        .foregroundColor(.white.opacity(0.8))
+                                                }
+                                                
+                                                Spacer()
+                                                
+                                                Text(gift.date, style: .time)
+                                                    .font(.system(size: 10))
+                                                    .foregroundColor(.gray)
+                                            }
+                                            .padding(12)
+                                            .background(Color.white.opacity(0.08))
+                                            .cornerRadius(12)
+                                        }
+                                    }
+                                }
+                                
+                                // SECTION 2 : BOUTIQUE DE CADEAUX
                                 VStack(alignment: .leading, spacing: 10) {
                                     Text("Boutique de Cadeaux 🎁").font(.headline).foregroundColor(.white)
                                     Text("Achetez un cadeau unique pour l'offrir depuis le Classement.").font(.caption).foregroundColor(.gray)
@@ -132,7 +176,6 @@ struct InteractionsView: View {
                                         Text("Aucun cadeau disponible...").foregroundColor(.gray).padding()
                                     } else {
                                         ForEach(gifts) { gift in
-                                            // On utilise la même ligne que pour l'arsenal (limite à 1 exemplaire)
                                             CombatItemRow(item: gift, data: data, gameManager: gameManager)
                                         }
                                     }

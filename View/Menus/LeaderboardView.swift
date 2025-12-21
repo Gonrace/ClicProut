@@ -3,6 +3,7 @@ import SwiftUI
 struct LeaderboardView: View {
     @ObservedObject var gameManager: GameManager
     @ObservedObject var data: GameData
+    @ObservedObject var socialManager: SocialManager
     @Environment(\.dismiss) var dismiss
     
     // 1. Filtre pour les attaques que l'on a déjà en stock
@@ -117,10 +118,10 @@ struct LeaderboardView: View {
             } else {
                 ForEach(ownedAttacks, id: \.id) { attack in
                     Button {
-                        gameManager.sendAttack(
-                            targetUserID: entry.id,
+                        socialManager.sendAttack(
+                            targetID: entry.id,
                             item: attack,
-                            senderUsername: gameManager.username
+                            myName: gameManager.username
                         )
                         data.itemLevels[attack.name, default: 0] -= 1
                         UINotificationFeedbackGenerator().notificationOccurred(.success)
@@ -146,10 +147,10 @@ struct LeaderboardView: View {
             } else {
                 ForEach(ownedGifts, id: \.id) { gift in
                     Button {
-                        gameManager.sendGift(
-                            targetUserID: entry.id,
-                            giftItem: gift,
-                            senderUsername: gameManager.username
+                        socialManager.sendGift(
+                            targetID: entry.id,
+                            item: gift,
+                            myName: gameManager.username
                         )
                         data.itemLevels[gift.name, default: 0] -= 1
                         UINotificationFeedbackGenerator().notificationOccurred(.success)

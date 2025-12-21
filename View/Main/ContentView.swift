@@ -1,40 +1,38 @@
 import SwiftUI
 import UIKit
 
-// --- 1. STRUCTURES D'AIDE ---
-struct FallingPoop: Identifiable {
-    let id = UUID()
-    let emoji: String = "💩"
-    let x: CGFloat
-    var y: CGFloat = 0
-    let size: CGFloat
-    let rotation: Angle
-    let duration: Double
-}
-
 struct ContentView: View {
     
     // --- SOURCES DE VÉRITÉ ---
-    @StateObject var data = GameData()
+    @StateObject var data: GameData
     @StateObject var audio = AudioEngine()
     @StateObject var gameManager = GameManager()
+    @StateObject var poopManager: PoopEntityManager
+    @StateObject var socialManager = SocialManager()
+    @StateObject var timerManager: GameTimerManager
     
-    // --- ÉTATS LOCAUX ---
-    @State private var timer: Timer?
-    @State private var fallingPoopTimer: Timer?
+    // --- INITIALISATION DES MANAGERS RELIÉS ---
+        init() {
+            // 1. On crée les instances de base
+            let d = GameData()
+            let p = PoopEntityManager()
+            
+            // 2. On les injecte dans le StateObject via leur "wrappedValue"
+            _data = StateObject(wrappedValue: d)
+            _poopManager = StateObject(wrappedValue: p)
+            
+            // 3. On crée le TimerManager en lui passant les deux autres
+            _timerManager = StateObject(wrappedValue: GameTimerManager(data: d, poopManager: p))
+        }
     
-    // États pour l'ouverture des menus (Sheets)
-    @State private var showingStats = false      // 1. Stats
-    @State private var showingLeaderboard = false // 2. Classement
-    @State private var showingCombat = false      // 3. Combat/Attaque
-    @State private var showingInventory = false   // 4. Inventaire
-    @State private var showingShop = false        // 5. Boutique
+    // --- ETATS UI ---
+    @State private var isPoopRainEnabled: Bool = true
+    @State private var showingStats = false
+    @State private var showingLeaderboard = false
+    @State private var showingCombat = false
+    @State private var showingInventory = false
+    @State private var showingShop = false
     @State private var showingDebug = false
-    
-    @State private var scale: CGFloat = 1.0
-    @State private var autoScale: CGFloat = 1.0
-    @State private var petAccumulator: Double = 0.0
-    @State private var fallingPoops: [FallingPoop] = []
     
     let customBackground = Color(red: 0.1, green: 0.15, blue: 0.2)
     
@@ -44,13 +42,7 @@ struct ContentView: View {
             customBackground.edgesIgnoringSafeArea(.all)
             
             // CALQUE DES PARTICULES (Pluie de caca)
-            ForEach(fallingPoops) { poop in
-                Text(poop.emoji)
-                    .font(.system(size: poop.size))
-                    .rotationEffect(poop.rotation)
-                    .position(x: poop.x, y: poop.y)
-                    .opacity(poop.y < 0 ? 0 : 1)
-            }
+            PoopRainView(fallingPoops: poopManager.fallingPoops, isEnabled: isPoopRainEnabled)
             
             // VERIFICATION VOLUME UTILISATEUR
             if data.isMuted {
@@ -74,7 +66,6 @@ struct ContentView: View {
             }
             
             VStack(spacing: 0) {
-                
                 // --- EN-TÊTE : SCORE & ALERTE ---
                 VStack(spacing: 5) {
                     Text("\(data.totalFartCount)")
@@ -92,7 +83,6 @@ struct ContentView: View {
                         .fontWeight(.bold)
                         .foregroundColor(.yellow)
                     
-                    // ALERTE D'ATTAQUE : Maintenant un bouton qui ouvre le menu Combat
                     if data.isUnderAttack && data.isActeUnlocked(2) {
                         Button(action: { showingCombat = true }) {
                             HStack(spacing: 10) {
@@ -121,20 +111,10 @@ struct ContentView: View {
                 
                 Spacer()
                 
-                // --- BOUTON CENTRAL (LE CACA) ---
-                Text("💩") // On laisse le caca de base
-                    .font(.system(size: 110))
-                    .shadow(color: .yellow.opacity(0.8), radius: 30)
-                // On garde une scale liée au score pour donner une sensation de progression
-                    .scaleEffect(1.0 + min(CGFloat(data.totalFartCount) / 100000.0, 0.4))
-                    .scaleEffect(scale)
-                    .scaleEffect(autoScale)
-                    .onTapGesture { self.clickAction() }
-                    .simultaneousGesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { _ in self.animateClick(isPressed: true) }
-                            .onEnded { _ in self.animateClick(isPressed: false) }
-                    )
+                // --- BOUTON CENTRAL ---
+                MainButtonView(data: data) {
+                    self.clickAction()
+                }
                 
                 Spacer()
                 
@@ -153,16 +133,11 @@ struct ContentView: View {
                 .frame(height: 50)
                 .padding(.bottom, 10)
                 
-                // --- BARRE DE NAVIGATION (ORDRE : Stats, Classement, Combat, Inventaire, Boutique) ---
+                // --- BARRE DE NAVIGATION ---
                 HStack(spacing: 0) {
-                    // 1. Stats
                     NavButton(icon: "chart.bar.fill", action: { showingStats = true }, color: .purple)
-                    
-                    // 2. Classement
                     NavButton(icon: "trophy.fill", action: { showingLeaderboard = true }, color: .orange)
                     
-                    // 3. INTERACTION VIEW (WC Public)
-                    // On n'affiche le bouton de combat QUE si l'acte 2 est débloqué
                     if data.isActeUnlocked(2) {
                         Button(action: { showingCombat = true }) {
                             ZStack {
@@ -178,7 +153,6 @@ struct ContentView: View {
                         }
                         .frame(maxWidth: .infinity)
                     } else {
-                        // Si l'acte 2 n'est pas débloqué, on met un espace vide ou un cadenas
                         VStack {
                             Image(systemName: "lock.fill")
                                 .foregroundColor(.gray.opacity(0.5))
@@ -188,10 +162,8 @@ struct ContentView: View {
                         .frame(maxWidth: .infinity)
                         .offset(y: -5)
                     }
-                    // 4. Inventaire
-                    NavButton(icon: "person.text.rectangle", action: { showingInventory = true }, color: .teal)
                     
-                    // 5. Boutique
+                    NavButton(icon: "person.text.rectangle", action: { showingInventory = true }, color: .teal)
                     NavButton(icon: "bag.fill", action: { showingShop = true }, color: .blue)
                 }
                 .frame(maxWidth: .infinity)
@@ -202,21 +174,26 @@ struct ContentView: View {
                 .padding(.horizontal, 15)
                 .padding(.bottom, 20)
             }
+            
             NotificationOverlay(data: data)
         }
         .onAppear {
-            self.startAutoFartTimer()
-            self.startFallingPoopTimer()
-            self.gameManager.startObservingIncomingAttacks(data: data)
+            // Le TimerManager s'occupe maintenant de l'auto-fart et de la pluie auto
+            timerManager.startAutoFartTimer()
+                    
+            // Le PoopManager s'occupe de faire descendre les cacas
+            poopManager.startFallingPoopTimer()
+                    
+            socialManager.startObservingInteractions(gameData: data)
+            gameManager.startObservingLeaderboard()
         }
         .onDisappear {
-            self.timer?.invalidate()
-            self.fallingPoopTimer?.invalidate()
+                // On arrête proprement le moteur de temps
+            timerManager.stopTimer()
         }
-        // FENÊTRES (SHEETS)
         .sheet(isPresented: $showingStats) { StatsView(data: data, gameManager: gameManager).interactiveDismissDisabled(true) }
-        .sheet(isPresented: $showingLeaderboard) { LeaderboardView(gameManager: gameManager, data: data).interactiveDismissDisabled(true) }
-        .sheet(isPresented: $showingCombat) { InteractionsView(data: data, gameManager: gameManager).interactiveDismissDisabled(true) }
+        .sheet(isPresented: $showingLeaderboard) { LeaderboardView(gameManager: gameManager, data: data, socialManager: socialManager) .interactiveDismissDisabled(true)}
+        .sheet(isPresented: $showingCombat) {InteractionsView(data: data, gameManager: gameManager, socialManager: socialManager).interactiveDismissDisabled(true)}
         .sheet(isPresented: $showingInventory) { InventoryView(data: data).interactiveDismissDisabled(true) }
         .sheet(isPresented: $showingShop) { ShopView(data: data).interactiveDismissDisabled(true) }
         .sheet(isPresented: $showingDebug) { DebugView(data: data).interactiveDismissDisabled(true) }
@@ -224,72 +201,13 @@ struct ContentView: View {
     
     // --- LOGIQUE ENGINE ---
     func clickAction() {
-        // On laisse GameData gérer le calcul avec le malus son
         data.processProutClick()
-        
-        // On met à jour le leaderboard sur Firebase
         gameManager.saveLifetimeScore(lifetimeScore: data.lifetimeFarts)
-        
-        // Effets visuels et sonores
         audio.triggerFart(isAuto: false)
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         data.checkNotifications()
-    }
-    
-    func animateClick(isPressed: Bool) {
-        withAnimation(.spring(response: 0.1, dampingFraction: 0.4)) {
-            self.scale = isPressed ? 0.8 : 1.0
-        }
-    }
-    
-    func startAutoFartTimer() {
-        self.timer?.invalidate()
-        let tick = 0.05
-        self.timer = Timer.scheduledTimer(withTimeInterval: tick, repeats: true) { _ in
-            let pps = data.petsPerSecond
-            if pps <= 0 { return }
-            self.petAccumulator += pps * tick
-            if self.petAccumulator >= 1.0 {
-                let new = Int(self.petAccumulator)
-                data.totalFartCount += new
-                data.lifetimeFarts += new
-                self.petAccumulator -= Double(new)
-                self.triggerPoopRainOnAutoFart(producedAmount: new)
-                data.checkNotifications()
-            }
-        }
-    }
-    
-    func triggerPoopRainOnAutoFart(producedAmount: Int) {
-        let num = min(max(producedAmount / 50, 1), 15)
-        self.generatePoopRain(count: num)
-    }
-    
-    func generatePoopRain(count: Int) {
-        guard fallingPoops.count < 60 else { return }
-        let screen = UIScreen.main.bounds
-        for _ in 0..<count {
-            let p = FallingPoop(
-                x: .random(in: 0...screen.width),
-                y: .random(in: -screen.height/2...0),
-                size: .random(in: 15...35),
-                rotation: .degrees(.random(in: -180...180)),
-                duration: .random(in: 5...10)
-            )
-            DispatchQueue.main.asyncAfter(deadline: .now() + Double.random(in: 0...0.5)) {
-                self.fallingPoops.append(p)
-            }
-        }
-    }
-    
-    func startFallingPoopTimer() {
-        self.fallingPoopTimer?.invalidate()
-        self.fallingPoopTimer = Timer.scheduledTimer(withTimeInterval: 1/30, repeats: true) { _ in
-            for i in self.fallingPoops.indices {
-                self.fallingPoops[i].y += (50 / self.fallingPoops[i].duration) * (1/30) * 100
-            }
-            self.fallingPoops.removeAll { $0.y > UIScreen.main.bounds.height * 1.5 }
-        }
+        // Ajout : Pluie au clic manuel si tu veux
+        poopManager.generatePoopRain(count: 1)
     }
 }
 
