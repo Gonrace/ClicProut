@@ -28,7 +28,14 @@ class GameData: ObservableObject {
     @Published var allItems: [ShopItem] = []
     @Published var actesInfo: [Int: ActeMetadata] = [:]
     @Published var config = GlobalConfig()
-    @Published var isMaintenanceMode: Bool = false // Réinjecté de la V1
+    @Published var isMaintenanceMode: Bool = false
+    @Published var remoteNotifications: [GameNotification] = []
+    
+    
+    // MARK: - NOTIFICATION
+    @Published var pendingNotification: GameNotification? = nil
+    @Published var showNotificationOverlay: Bool = false
+    
     
     // MARK: - ÉCONOMIE ET MONNAIES (Local)
     @AppStorage("TotalFartCount") var totalFartCount: Int = 0
@@ -46,14 +53,17 @@ class GameData: ObservableObject {
     @Published var isMuted: Bool = false
     
     @Published var itemLevels: [String: Int] = [:] {
-        didSet { GameData.saveItemLevels(itemLevels) }
+        didSet {
+            GameData.saveItemLevels(itemLevels)
+            self.checkNotifications() // --- AJOUTER CETTE LIGNE ---
+        }
     }
 
     // MARK: - INITIALISATION
     init() {
         self.itemLevels = GameData.loadItemLevels()
         startFirebaseSync()
-        startGiftSync() // Activé (V2)
+        startGiftSync()
         setupAudioSession()
         
         NotificationCenter.default.addObserver(
@@ -105,6 +115,26 @@ class GameData: ObservableObject {
             }
         }
 
+        // Observer les notifications narratives depuis Firebase
+        ref.child("notifications").observe(.value) { snapshot in
+            print("📡 Firebase: Tentative de lecture des notifications...") // <-- AJOUTE ÇA
+            guard let value = snapshot.value as? [String: [String: Any]] else { return }
+            let notifs = value.map { (key, val) in
+                GameNotification(
+                    id: key,
+                    title: val["Titre"] as? String ?? "",
+                    message: val["Message"] as? String ?? "",
+                    conditionType: val["Condition_Type"] as? String ?? "",
+                    conditionValue: "\(val["Condition_Value"] ?? "")"
+                )
+            }
+            DispatchQueue.main.async {
+                self.remoteNotifications = notifs
+                self.checkNotifications() // Vérification immédiate au chargement
+            }
+            print("✅ Firebase: \(notifs.count) notifications chargées dans GameData") // <-- AJOUTE ÇA
+        }
+        
         // Observer la logique PVP
         ref.child("logic_pvp").observe(.value) { snapshot in
             guard let value = snapshot.value as? [String: [String: Any]] else { return }
@@ -169,6 +199,7 @@ class GameData: ObservableObject {
         let produced = clickPower
         totalFartCount += produced
         lifetimeFarts += produced
+        checkNotifications()
     }
     
     func checkMuteStatus() {
@@ -287,6 +318,7 @@ class GameData: ObservableObject {
         else { itemLevels[item.name, default: 0] += 1 }
         
         if item.category == .production { autoFarterUpdateCount += 1 }
+        checkNotifications()
         return true
     }
 
@@ -386,4 +418,95 @@ class GameData: ObservableObject {
            let decoded = try? JSONDecoder().decode([String: Int].self, from: data) { return decoded }
         return [:]
     }
+    // MARK: - SYSTEME DE NOTIFICATIONS DYNAMIQUES
+        
+        // Calcule l'acte actuel (utile pour les conditions)
+        var currentActe: Int {
+            return actesInfo.keys.filter { isActeUnlocked($0) }.max() ?? 1
+        }
+
+        func checkNotifications() {
+            // Liste des IDs déjà affichés pour éviter les répétitions
+            let shownNotifs = UserDefaults.standard.stringArray(forKey: "shown_notifications") ?? []
+
+            for notif in remoteNotifications {
+                if shownNotifs.contains(notif.id) { continue }
+
+                var shouldTrigger = false
+
+                switch notif.conditionType {
+                case "direct":
+                        shouldTrigger = true // Déclenchement immédiat sans vérification
+                    
+                case "acte_reached":
+                    if let acteReq = Int(notif.conditionValue), currentActe >= acteReq { shouldTrigger = true }
+
+                case "pps_reached":
+                    if let ppsReq = Double(notif.conditionValue), petsPerSecond >= ppsReq { shouldTrigger = true }
+
+                case "score_reached":
+                    if let scoreReq = Int(notif.conditionValue), totalFartCount >= scoreReq { shouldTrigger = true }
+
+                case "item_bought":
+                    if itemLevels[notif.conditionValue, default: 0] > 0 { shouldTrigger = true }
+
+                // --- COMPTEURS PAR CATÉGORIE ---
+
+                case "count_production":
+                    if let req = Int(notif.conditionValue), countItems(in: .production) >= req { shouldTrigger = true }
+
+                case "count_outil":
+                    if let req = Int(notif.conditionValue), countItems(in: .outil) >= req { shouldTrigger = true }
+
+                case "count_amelioration":
+                    if let req = Int(notif.conditionValue), countItems(in: .amelioration) >= req { shouldTrigger = true }
+
+                case "count_perturbateur":
+                    if let req = Int(notif.conditionValue), countItems(in: .perturbateur) >= req { shouldTrigger = true }
+
+                case "count_defense":
+                    if let req = Int(notif.conditionValue), countItems(in: .defense) >= req { shouldTrigger = true }
+
+                case "count_kado":
+                    if let req = Int(notif.conditionValue), countItems(in: .kado) >= req { shouldTrigger = true }
+
+                case "count_skin":
+                    if let req = Int(notif.conditionValue), countItems(in: .skin) >= req { shouldTrigger = true }
+
+                case "count_sound":
+                    if let req = Int(notif.conditionValue), countItems(in: .sound) >= req { shouldTrigger = true }
+
+                case "count_background":
+                    if let req = Int(notif.conditionValue), countItems(in: .background) >= req { shouldTrigger = true }
+
+                case "count_jalon":
+                    if let req = Int(notif.conditionValue), countItems(in: .jalonNarratif) >= req { shouldTrigger = true }
+
+                default: break
+                }
+
+                if shouldTrigger {
+                    triggerAppNotification(notif)
+                }
+            }
+        }
+        private func countItems(in category: ItemCategory) -> Int {
+            // 1. On trouve tous les noms d'objets qui appartiennent à cette catégorie
+            let categoryItemNames = allItems.filter { $0.category == category }.map { $0.name }
+        
+            // 2. On additionne les niveaux de ces objets précis dans itemLevels
+            let total = itemLevels.filter { categoryItemNames.contains($0.key) }.values.reduce(0, +)
+        
+            return total
+        }
+        private func triggerAppNotification(_ notif: GameNotification) {
+            var shownNotifs = UserDefaults.standard.stringArray(forKey: "shown_notifications") ?? []
+            shownNotifs.append(notif.id)
+            UserDefaults.standard.set(shownNotifs, forKey: "shown_notifications")
+
+            DispatchQueue.main.async {
+                self.pendingNotification = notif
+                self.showNotificationOverlay = true
+            }
+        }
 }

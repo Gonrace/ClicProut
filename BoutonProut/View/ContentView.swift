@@ -81,12 +81,12 @@ struct ContentView: View {
                         .font(.system(size: 60, weight: .heavy, design: .rounded))
                         .foregroundColor(.yellow)
                         .animation(.spring(), value: data.totalFartCount)
-                                
+                    
                     Text("PPS: \(String(format: "%.2f", data.petsPerSecond)) | PPC: \(data.clickPower)")
                         .font(.caption)
                         .fontWeight(.bold)
                         .foregroundColor(.gray)
-
+                    
                     Text("PQ d'Or: \(data.goldenToiletPaper) 👑")
                         .font(.caption)
                         .fontWeight(.bold)
@@ -125,7 +125,7 @@ struct ContentView: View {
                 Text("💩") // On laisse le caca de base
                     .font(.system(size: 110))
                     .shadow(color: .yellow.opacity(0.8), radius: 30)
-                    // On garde une scale liée au score pour donner une sensation de progression
+                // On garde une scale liée au score pour donner une sensation de progression
                     .scaleEffect(1.0 + min(CGFloat(data.totalFartCount) / 100000.0, 0.4))
                     .scaleEffect(scale)
                     .scaleEffect(autoScale)
@@ -202,6 +202,7 @@ struct ContentView: View {
                 .padding(.horizontal, 15)
                 .padding(.bottom, 20)
             }
+            NotificationOverlay(data: data)
         }
         .onAppear {
             self.startAutoFartTimer()
@@ -232,6 +233,7 @@ struct ContentView: View {
         // Effets visuels et sonores
         audio.triggerFart(isAuto: false)
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        data.checkNotifications()
     }
     
     func animateClick(isPressed: Bool) {
@@ -253,6 +255,7 @@ struct ContentView: View {
                 data.lifetimeFarts += new
                 self.petAccumulator -= Double(new)
                 self.triggerPoopRainOnAutoFart(producedAmount: new)
+                data.checkNotifications()
             }
         }
     }

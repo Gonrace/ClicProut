@@ -6,6 +6,12 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		DA50F9862EF725E500B3D3C7 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = DA50F9852EF725E500B3D3C7 /* GoogleService-Info.plist */; };
+		DABAA68A2EF0619E009CEAB4 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = DABAA6892EF0619E009CEAB4 /* FirebaseCore */; };
+		DABAA68C2EF0619E009CEAB4 /* FirebaseDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = DABAA68B2EF0619E009CEAB4 /* FirebaseDatabase */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		DAE0EA362EEEF6A500A43D8A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -24,9 +30,10 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		DAE0EA282EEEF6A200A43D8A /* BoutonProut.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BoutonProut.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		DAE0EA352EEEF6A500A43D8A /* BoutonProutTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BoutonProutTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		DAE0EA3F2EEEF6A500A43D8A /* BoutonProutUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BoutonProutUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		DA50F9852EF725E500B3D3C7 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
+		DAE0EA282EEEF6A200A43D8A /* ClicProut.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClicProut.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DAE0EA352EEEF6A500A43D8A /* ClicProutTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClicProutTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		DAE0EA3F2EEEF6A500A43D8A /* ClicProutUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClicProutUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAE0EA592EEEFB7F00A43D8A /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
@@ -34,16 +41,6 @@
 		DAE0EA2A2EEEF6A200A43D8A /* BoutonProut */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = BoutonProut;
-			sourceTree = "<group>";
-		};
-		DAE0EA382EEEF6A500A43D8A /* BoutonProutTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = BoutonProutTests;
-			sourceTree = "<group>";
-		};
-		DAE0EA422EEEF6A500A43D8A /* BoutonProutUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = BoutonProutUITests;
 			sourceTree = "<group>";
 		};
 		DAE0EA622EEF055F00A43D8A /* FartSound */ = {
@@ -58,6 +55,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DABAA68C2EF0619E009CEAB4 /* FirebaseDatabase in Frameworks */,
+				DABAA68A2EF0619E009CEAB4 /* FirebaseCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -83,19 +82,18 @@
 			children = (
 				DAE0EA622EEF055F00A43D8A /* FartSound */,
 				DAE0EA2A2EEEF6A200A43D8A /* BoutonProut */,
-				DAE0EA382EEEF6A500A43D8A /* BoutonProutTests */,
-				DAE0EA422EEEF6A500A43D8A /* BoutonProutUITests */,
 				DAE0EA562EEEF91600A43D8A /* Frameworks */,
 				DAE0EA292EEEF6A200A43D8A /* Products */,
+				DA50F9852EF725E500B3D3C7 /* GoogleService-Info.plist */,
 			);
 			sourceTree = "<group>";
 		};
 		DAE0EA292EEEF6A200A43D8A /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				DAE0EA282EEEF6A200A43D8A /* BoutonProut.app */,
-				DAE0EA352EEEF6A500A43D8A /* BoutonProutTests.xctest */,
-				DAE0EA3F2EEEF6A500A43D8A /* BoutonProutUITests.xctest */,
+				DAE0EA282EEEF6A200A43D8A /* ClicProut.app */,
+				DAE0EA352EEEF6A500A43D8A /* ClicProutTests.xctest */,
+				DAE0EA3F2EEEF6A500A43D8A /* ClicProutUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -111,9 +109,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		DAE0EA272EEEF6A200A43D8A /* BoutonProut */ = {
+		DAE0EA272EEEF6A200A43D8A /* ClicProut */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = DAE0EA492EEEF6A500A43D8A /* Build configuration list for PBXNativeTarget "BoutonProut" */;
+			buildConfigurationList = DAE0EA492EEEF6A500A43D8A /* Build configuration list for PBXNativeTarget "ClicProut" */;
 			buildPhases = (
 				DAE0EA242EEEF6A200A43D8A /* Sources */,
 				DAE0EA252EEEF6A200A43D8A /* Frameworks */,
@@ -127,16 +125,18 @@
 				DAE0EA2A2EEEF6A200A43D8A /* BoutonProut */,
 				DAE0EA622EEF055F00A43D8A /* FartSound */,
 			);
-			name = BoutonProut;
+			name = ClicProut;
 			packageProductDependencies = (
+				DABAA6892EF0619E009CEAB4 /* FirebaseCore */,
+				DABAA68B2EF0619E009CEAB4 /* FirebaseDatabase */,
 			);
 			productName = BoutonProut;
-			productReference = DAE0EA282EEEF6A200A43D8A /* BoutonProut.app */;
+			productReference = DAE0EA282EEEF6A200A43D8A /* ClicProut.app */;
 			productType = "com.apple.product-type.application";
 		};
-		DAE0EA342EEEF6A500A43D8A /* BoutonProutTests */ = {
+		DAE0EA342EEEF6A500A43D8A /* ClicProutTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = DAE0EA4C2EEEF6A500A43D8A /* Build configuration list for PBXNativeTarget "BoutonProutTests" */;
+			buildConfigurationList = DAE0EA4C2EEEF6A500A43D8A /* Build configuration list for PBXNativeTarget "ClicProutTests" */;
 			buildPhases = (
 				DAE0EA312EEEF6A500A43D8A /* Sources */,
 				DAE0EA322EEEF6A500A43D8A /* Frameworks */,
@@ -147,19 +147,16 @@
 			dependencies = (
 				DAE0EA372EEEF6A500A43D8A /* PBXTargetDependency */,
 			);
-			fileSystemSynchronizedGroups = (
-				DAE0EA382EEEF6A500A43D8A /* BoutonProutTests */,
-			);
-			name = BoutonProutTests;
+			name = ClicProutTests;
 			packageProductDependencies = (
 			);
 			productName = BoutonProutTests;
-			productReference = DAE0EA352EEEF6A500A43D8A /* BoutonProutTests.xctest */;
+			productReference = DAE0EA352EEEF6A500A43D8A /* ClicProutTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		DAE0EA3E2EEEF6A500A43D8A /* BoutonProutUITests */ = {
+		DAE0EA3E2EEEF6A500A43D8A /* ClicProutUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = DAE0EA4F2EEEF6A500A43D8A /* Build configuration list for PBXNativeTarget "BoutonProutUITests" */;
+			buildConfigurationList = DAE0EA4F2EEEF6A500A43D8A /* Build configuration list for PBXNativeTarget "ClicProutUITests" */;
 			buildPhases = (
 				DAE0EA3B2EEEF6A500A43D8A /* Sources */,
 				DAE0EA3C2EEEF6A500A43D8A /* Frameworks */,
@@ -170,14 +167,11 @@
 			dependencies = (
 				DAE0EA412EEEF6A500A43D8A /* PBXTargetDependency */,
 			);
-			fileSystemSynchronizedGroups = (
-				DAE0EA422EEEF6A500A43D8A /* BoutonProutUITests */,
-			);
-			name = BoutonProutUITests;
+			name = ClicProutUITests;
 			packageProductDependencies = (
 			);
 			productName = BoutonProutUITests;
-			productReference = DAE0EA3F2EEEF6A500A43D8A /* BoutonProutUITests.xctest */;
+			productReference = DAE0EA3F2EEEF6A500A43D8A /* ClicProutUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
@@ -203,7 +197,7 @@
 					};
 				};
 			};
-			buildConfigurationList = DAE0EA232EEEF6A200A43D8A /* Build configuration list for PBXProject "BoutonProut" */;
+			buildConfigurationList = DAE0EA232EEEF6A200A43D8A /* Build configuration list for PBXProject "ClicProut" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -213,15 +207,16 @@
 			mainGroup = DAE0EA1F2EEEF6A200A43D8A;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				DABAA6862EF05CB6009CEAB4 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = DAE0EA292EEEF6A200A43D8A /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				DAE0EA272EEEF6A200A43D8A /* BoutonProut */,
-				DAE0EA342EEEF6A500A43D8A /* BoutonProutTests */,
-				DAE0EA3E2EEEF6A500A43D8A /* BoutonProutUITests */,
+				DAE0EA272EEEF6A200A43D8A /* ClicProut */,
+				DAE0EA342EEEF6A500A43D8A /* ClicProutTests */,
+				DAE0EA3E2EEEF6A500A43D8A /* ClicProutUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -231,6 +226,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DA50F9862EF725E500B3D3C7 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -277,12 +273,12 @@
 /* Begin PBXTargetDependency section */
 		DAE0EA372EEEF6A500A43D8A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = DAE0EA272EEEF6A200A43D8A /* BoutonProut */;
+			target = DAE0EA272EEEF6A200A43D8A /* ClicProut */;
 			targetProxy = DAE0EA362EEEF6A500A43D8A /* PBXContainerItemProxy */;
 		};
 		DAE0EA412EEEF6A500A43D8A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = DAE0EA272EEEF6A200A43D8A /* BoutonProut */;
+			target = DAE0EA272EEEF6A200A43D8A /* ClicProut */;
 			targetProxy = DAE0EA402EEEF6A500A43D8A /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -429,8 +425,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = paulserra.BoutonProut;
+				MARKETING_VERSION = 3.1;
+				PRODUCT_BUNDLE_IDENTIFIER = paulserra.ClicProut;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -462,8 +458,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = paulserra.BoutonProut;
+				MARKETING_VERSION = 3.1;
+				PRODUCT_BUNDLE_IDENTIFIER = paulserra.ClicProut;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -493,7 +489,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BoutonProut.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BoutonProut";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ClicProut.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ClicProut";
 			};
 			name = Debug;
 		};
@@ -515,7 +511,7 @@
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BoutonProut.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BoutonProut";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ClicProut.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/ClicProut";
 			};
 			name = Release;
 		};
@@ -562,7 +558,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		DAE0EA232EEEF6A200A43D8A /* Build configuration list for PBXProject "BoutonProut" */ = {
+		DAE0EA232EEEF6A200A43D8A /* Build configuration list for PBXProject "ClicProut" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				DAE0EA472EEEF6A500A43D8A /* Debug */,
@@ -571,7 +567,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		DAE0EA492EEEF6A500A43D8A /* Build configuration list for PBXNativeTarget "BoutonProut" */ = {
+		DAE0EA492EEEF6A500A43D8A /* Build configuration list for PBXNativeTarget "ClicProut" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				DAE0EA4A2EEEF6A500A43D8A /* Debug */,
@@ -580,7 +576,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		DAE0EA4C2EEEF6A500A43D8A /* Build configuration list for PBXNativeTarget "BoutonProutTests" */ = {
+		DAE0EA4C2EEEF6A500A43D8A /* Build configuration list for PBXNativeTarget "ClicProutTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				DAE0EA4D2EEEF6A500A43D8A /* Debug */,
@@ -589,7 +585,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		DAE0EA4F2EEEF6A500A43D8A /* Build configuration list for PBXNativeTarget "BoutonProutUITests" */ = {
+		DAE0EA4F2EEEF6A500A43D8A /* Build configuration list for PBXNativeTarget "ClicProutUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				DAE0EA502EEEF6A500A43D8A /* Debug */,
@@ -599,6 +595,30 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		DABAA6862EF05CB6009CEAB4 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 12.7.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		DABAA6892EF0619E009CEAB4 /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DABAA6862EF05CB6009CEAB4 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
+		};
+		DABAA68B2EF0619E009CEAB4 /* FirebaseDatabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DABAA6862EF05CB6009CEAB4 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseDatabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = DAE0EA202EEEF6A200A43D8A /* Project object */;
 }
