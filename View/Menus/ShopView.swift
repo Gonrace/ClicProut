@@ -44,11 +44,11 @@ struct ShopView: View {
                     VStack(alignment: .leading, spacing: AppStyle.defaultPadding) {
                         
                         if selectedTab == .tools {
-                            // --- ONGLET PRODUCTION (DYNAMIQUE PAR ACTE + TRIÉ) ---
-                            let sortedActeIDs = data.actesInfo.keys.sorted()
+                            // On récupère les IDs d'actes depuis le CloudManager
+                            let sortedActeIDs = data.cloudManager?.actesInfo.keys.sorted() ?? [1]
                             
                             ForEach(sortedActeIDs, id: \.self) { acteID in
-                                if let info = data.actesInfo[acteID] {
+                                if let info = data.cloudManager?.actesInfo[acteID] {
                                     if data.isActeUnlocked(acteID) {
                                         ActeSection(title: info.title, acte: acteID, data: data)
                                     } else {
@@ -60,8 +60,8 @@ struct ShopView: View {
                             }
 
                         } else if selectedTab == .cosmetics {
-                            // --- ONGLET COSMÉTIQUES (TRIÉS PAR ACTE PUIS PRIX) ---
-                            let cosmetics = data.allItems.filter {
+                            let allItems = data.cloudManager?.allItems ?? []
+                            let cosmetics = allItems.filter {
                                 $0.category == .skin || $0.category == .sound || $0.category == .background
                             }.sorted {
                                 if $0.acte != $1.acte { return $0.acte < $1.acte }
@@ -113,6 +113,8 @@ struct ActeSection: View {
     @ObservedObject var data: GameData
     
     var body: some View {
+        let allItems = data.cloudManager?.allItems ?? []
+        
         VStack(alignment: .leading, spacing: 15) {
             Text(title)
                 .font(AppStyle.subTitleFont)
@@ -120,22 +122,26 @@ struct ActeSection: View {
                 .foregroundColor(.white)
                 .padding(.leading, 5)
             
-            // FILTRAGE ET TRI PAR PRIX POUR CHAQUE SOUS-CATÉGORIE
             categoryGroup(
                 title: "Outils de Clic 🖱️",
-                items: data.allItems.filter { $0.acte == acte && $0.category == .outil }
+                items: allItems.filter { $0.acte == acte && $0.category == .outil }
                     .sorted(by: { $0.baseCost < $1.baseCost })
             )
             
             categoryGroup(
                 title: "Bâtiments de Production 🏭",
-                items: data.allItems.filter { $0.acte == acte && $0.category == .production }
+                items: allItems.filter { $0.acte == acte && $0.category == .production }
                     .sorted(by: { $0.baseCost < $1.baseCost })
             )
             
             categoryGroup(
-                title: "Améliorations & Jalons ✨",
-                items: data.allItems.filter { $0.acte == acte && ($0.category == .amelioration || $0.category == .jalonNarratif) }
+                title: "Améliorations ✨",
+                items: allItems.filter { $0.acte == acte && $0.category == .amelioration}
+                    .sorted(by: { $0.baseCost < $1.baseCost })
+            )
+            categoryGroup(
+                title: "Jalons 📚",
+                items: allItems.filter { $0.acte == acte && $0.category == .jalonNarratif }
                     .sorted(by: { $0.baseCost < $1.baseCost })
             )
         }
@@ -191,8 +197,8 @@ struct ItemRow: View {
     var displayCost: Int {
         let level = data.itemLevels[item.name, default: 0]
         if item.category == .production || item.category == .outil {
-            // Utilisation du multiplicateur de prix dynamique venant du Cloud
-            return Int((Double(item.baseCost) * pow(data.config.priceMultiplier, Double(level))).rounded())
+            let mult = data.cloudManager?.config.priceMultiplier ?? 1.15
+            return Int((Double(item.baseCost) * pow(mult, Double(level))).rounded())
         }
         return item.baseCost
     }

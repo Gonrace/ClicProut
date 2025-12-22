@@ -6,16 +6,19 @@ struct LeaderboardView: View {
     @ObservedObject var socialManager: SocialManager
     @Environment(\.dismiss) var dismiss
     
-    // 1. Filtre pour les attaques que l'on a déjà en stock
+    // 1. Filtre pour les attaques via cloudManager
     var ownedAttacks: [ShopItem] {
-        return data.allItems.filter { item in
+        // On récupère la liste des items depuis le cloudManager
+        let allItems = data.cloudManager?.allItems ?? []
+        return allItems.filter { item in
             item.category == .perturbateur && data.itemLevels[item.name, default: 0] > 0
         }
     }
     
-    // 2. Filtre pour les cadeaux que l'on a déjà en stock
+    // 2. Filtre pour les cadeaux via cloudManager
     var ownedGifts: [ShopItem] {
-        return data.allItems.filter { item in
+        let allItems = data.cloudManager?.allItems ?? []
+        return allItems.filter { item in
             item.category == .kado && data.itemLevels[item.name, default: 0] > 0
         }
     }
@@ -59,7 +62,7 @@ struct LeaderboardView: View {
                                         .frame(width: 40, alignment: .leading)
                                         .foregroundColor(isMe ? .black : AppStyle.accentColor)
                                     
-                                    // 2. NOM (Prend l'espace restant)
+                                    // 2. NOM
                                     Text(entry.username)
                                         .font(.subheadline)
                                         .fontWeight(isMe ? .black : .medium)
@@ -67,16 +70,15 @@ struct LeaderboardView: View {
                                         .foregroundColor(isMe ? .black : .white)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                     
-                                    // 3. ACTIONS (Conditionnées aux déblocages)
+                                    // 3. ACTIONS
                                     HStack(spacing: 12) {
-                                        // On n'affiche les boutons que si ce n'est pas nous
                                         if !isMe {
-                                            // Méchanceté (Attaques)
+                                            // Méchanceté
                                             if data.isMechanceteUnlocked {
                                                 attackMenu(for: entry)
                                             }
                                             
-                                            // Gentillesse (Cadeaux)
+                                            // Gentillesse
                                             if data.isGentillesseUnlocked {
                                                 giftMenu(for: entry)
                                             }
@@ -109,14 +111,14 @@ struct LeaderboardView: View {
         }
     }
     
-    // MARK: - MENU ATTAQUE (Consomme le stock)
+    // MARK: - MENU ATTAQUE
     @ViewBuilder
     private func attackMenu(for entry: LeaderboardEntry) -> some View {
         Menu {
             if ownedAttacks.isEmpty {
                 Text("Aucune arme en stock").foregroundColor(.gray)
             } else {
-                ForEach(ownedAttacks, id: \.id) { attack in
+                ForEach(ownedAttacks, id: \.name) { attack in // Utilisation de .name comme ID stable
                     Button {
                         socialManager.sendAttack(
                             targetID: entry.id,
@@ -134,18 +136,18 @@ struct LeaderboardView: View {
             Image(systemName: "bolt.circle.fill")
                 .font(.title3)
                 .foregroundColor(.red)
-                .opacity(ownedAttacks.isEmpty ? 0.4 : 1.0) // Grisé si vide
+                .opacity(ownedAttacks.isEmpty ? 0.4 : 1.0)
         }
     }
 
-    // MARK: - MENU OFFRIR (Consomme le stock)
+    // MARK: - MENU OFFRIR
     @ViewBuilder
     private func giftMenu(for entry: LeaderboardEntry) -> some View {
         Menu {
             if ownedGifts.isEmpty {
                 Text("Aucun cadeau en stock").foregroundColor(.gray)
             } else {
-                ForEach(ownedGifts, id: \.id) { gift in
+                ForEach(ownedGifts, id: \.name) { gift in // Utilisation de .name comme ID stable
                     Button {
                         socialManager.sendGift(
                             targetID: entry.id,
@@ -163,7 +165,7 @@ struct LeaderboardView: View {
             Image(systemName: "gift.circle.fill")
                 .font(.title3)
                 .foregroundColor(.green)
-                .opacity(ownedGifts.isEmpty ? 0.4 : 1.0) // Grisé si vide
+                .opacity(ownedGifts.isEmpty ? 0.4 : 1.0)
         }
     }
 }

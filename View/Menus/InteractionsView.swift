@@ -93,7 +93,7 @@ struct InteractionsView: View {
                                     
                                     ForEach(2...5, id: \.self) { acteNum in
                                         if data.isActeUnlocked(acteNum) {
-                                            let items = data.allItems.filter { $0.category == .perturbateur && $0.acte == acteNum }
+                                            let items = data.cloudManager?.allItems.filter { $0.category == .perturbateur && $0.acte == acteNum } ?? []
                                             if !items.isEmpty {
                                                 Text("Acte \(acteNum)").font(.caption).foregroundColor(.gray).padding(.top, 5)
                                                 ForEach(items, id: \.name) { item in
@@ -109,7 +109,7 @@ struct InteractionsView: View {
                                     Text("Équipement de Défense 🛡️").font(.headline).foregroundColor(.white)
                                     ForEach(2...5, id: \.self) { acteNum in
                                         if data.isActeUnlocked(acteNum) {
-                                            let items = data.allItems.filter { $0.category == .defense && $0.acte == acteNum }
+                                            let items = data.cloudManager?.allItems.filter { $0.category == .defense && $0.acte == acteNum } ?? []
                                             if !items.isEmpty {
                                                 ForEach(items, id: \.name) { item in
                                                     CombatItemRow(item: item, data: data, gameManager: gameManager)
@@ -169,9 +169,7 @@ struct InteractionsView: View {
                                 VStack(alignment: .leading, spacing: 10) {
                                     Text("Boutique de Cadeaux 🎁").font(.headline).foregroundColor(.white)
                                     Text("Achetez un cadeau unique pour l'offrir depuis le Classement.").font(.caption).foregroundColor(.gray)
-                                    
-                                    let gifts = data.allItems.filter { $0.category == .kado }
-                                    
+                                    let gifts = data.cloudManager?.allItems.filter { $0.category == .kado } ?? []
                                     if gifts.isEmpty {
                                         Text("Aucun cadeau disponible...").foregroundColor(.gray).padding()
                                     } else {
@@ -219,7 +217,10 @@ struct InteractionsView: View {
     }
     
     private func threatRow(attack: ActiveAttackInfo) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let allItems = data.cloudManager?.allItems ?? []
+        let ownedDefenses = allItems.filter { $0.category == .defense && data.itemLevels[$0.name, default: 0] > 0 }
+        
+        return VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("⚠️ ALERTE ATTAQUE").fontWeight(.black).foregroundColor(.red)
                 Spacer()
@@ -227,7 +228,8 @@ struct InteractionsView: View {
             }
             Text("\(attack.attackerName) utilise : \(attack.weaponName)").foregroundColor(.white)
             
-            let ownedDefenses = data.allItems.filter { $0.category == .defense && data.itemLevels[$0.name, default: 0] > 0 }
+            let allItems = data.cloudManager?.allItems ?? []
+            let ownedDefenses = allItems.filter { $0.category == .defense && data.itemLevels[$0.name, default: 0] > 0 }
             if !ownedDefenses.isEmpty {
                 ForEach(ownedDefenses, id: \.name) { def in
                     Button(action: {

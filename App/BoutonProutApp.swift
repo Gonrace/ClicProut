@@ -1,18 +1,16 @@
-//  BoutonProutApp.swift
-//  BoutonProut
-
 import SwiftUI
-import Firebase // <-- Ajout 1
+import Firebase
 
 @main
 struct BoutonProutApp: App {
     
-    init() { // <-- Ajout 2 : Initialisation de Firebase
+    init() {
         FirebaseApp.configure()
     }
     
     var body: some Scene {
         WindowGroup {
+            // On appelle ContentView sans arguments car il a son propre init()
             ContentView()
         }
     }

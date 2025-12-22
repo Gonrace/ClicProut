@@ -37,9 +37,9 @@ struct StatsView: View {
     // --- LOGIQUE NARRATIVE DYNAMIQUE ---
     var currentEvolutionStage: String {
         // On récupère tous les IDs d'actes débloqués
-        let unlockedActes = data.actesInfo.keys.filter { data.isActeUnlocked($0) }
-        // On prend le plus élevé, sinon Acte 1 par défaut
-        if let highestActe = unlockedActes.max(), let info = data.actesInfo[highestActe] {
+        let actes = data.cloudManager?.actesInfo ?? [:]
+        let unlockedActes = actes.keys.filter { data.isActeUnlocked($0) }
+        if let highestActe = unlockedActes.max(), let info = actes[highestActe] {
             return info.title
         }
         return "Bébé Innocent 👶"
@@ -167,8 +167,9 @@ struct StatsView: View {
                         }
                         
                         // Footer narratif dynamique
-                        if let nextActe = data.actesInfo.keys.filter({ !data.isActeUnlocked($0) }).min(),
-                           let info = data.actesInfo[nextActe] {
+                        let actes = data.cloudManager?.actesInfo ?? [:]
+                        if let nextActe = actes.keys.filter({ !data.isActeUnlocked($0) }).min(),
+                           let info = actes[nextActe] {
                             Text("Prochaine étape : \(info.title)")
                                 .font(.caption2)
                                 .foregroundColor(.gray)

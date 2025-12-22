@@ -31,7 +31,7 @@ struct DebugView: View {
 
                 // --- 4. SIMULATEUR : S'ENVOYER UNE ATTAQUE ---
                 Section("S'attaquer soi-même") {
-                    let attacks = data.allItems.filter { $0.category == .perturbateur }
+                    let attacks = data.cloudManager?.allItems.filter { $0.category == .perturbateur } ?? []
                     ForEach(attacks, id: \.name) { item in
                         Button("\(item.emoji) Recevoir \(item.name)") {
                             data.applyAttack(
@@ -65,12 +65,14 @@ struct DebugView: View {
     
     func unlockActe(_ num: Int) {
         // Donne 1 exemplaire de chaque objet de l'acte visé pour le débloquer instantanément
-        data.allItems.filter { $0.acte == num }.forEach { data.itemLevels[$0.name] = 1 }
+        let items = data.cloudManager?.allItems ?? []
+        items.filter { $0.acte == num }.forEach { data.itemLevels[$0.name] = 1 }
     }
     
     func giveAll(of category: ItemCategory) {
         // Donne 10 exemplaires de chaque objet d'une catégorie (utile pour les consos)
-        data.allItems.filter { $0.category == category }.forEach {
+        let items = data.cloudManager?.allItems ?? []
+        items.filter { $0.category == category }.forEach {
             data.itemLevels[$0.name, default: 0] += 10
         }
     }

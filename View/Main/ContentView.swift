@@ -4,6 +4,7 @@ import UIKit
 struct ContentView: View {
     
     // --- SOURCES DE VÉRITÉ ---
+    @StateObject var cloudManager: CloudConfigManager
     @StateObject var data: GameData
     @StateObject var audio = AudioEngine()
     @StateObject var gameManager = GameManager()
@@ -14,10 +15,15 @@ struct ContentView: View {
     // --- INITIALISATION DES MANAGERS RELIÉS ---
         init() {
             // 1. On crée les instances de base
+            let cloud = CloudConfigManager()
             let d = GameData()
             let p = PoopEntityManager()
             
-            // 2. On les injecte dans le StateObject via leur "wrappedValue"
+            // 2. On lie le cerveau (data) à ses données (cloud)
+            d.cloudManager = cloud
+            
+            // 3. Injection dans les StateObjects
+            _cloudManager = StateObject(wrappedValue: cloud)
             _data = StateObject(wrappedValue: d)
             _poopManager = StateObject(wrappedValue: p)
             
@@ -178,6 +184,10 @@ struct ContentView: View {
             NotificationOverlay(data: data)
         }
         .onAppear {
+            // Pour récuperer et remplir les items
+            cloudManager.startFirebaseSync {
+                data.checkNotifications()
+            }
             // Le TimerManager s'occupe maintenant de l'auto-fart et de la pluie auto
             timerManager.startAutoFartTimer()
                     
