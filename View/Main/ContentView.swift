@@ -61,30 +61,6 @@ struct ContentView: View {
             // CALQUE DES PARTICULES
             PoopRainView(fallingPoops: poopManager.fallingPoops, isEnabled: isPoopRainEnabled)
             
-            // --- BANNIÈRE BONUS X2 (Z-INDEX ÉLEVÉ) ---
-            if squadManager.isFullSquadOnline() {
-                VStack {
-                    HStack(spacing: 10) {
-                        Image(systemName: "flame.fill")
-                        Text("BONUS ESCOUADE x2 ACTIVÉ !")
-                            .fontWeight(.black)
-                        Image(systemName: "flame.fill")
-                    }
-                    .font(.system(size: 12, design: .rounded))
-                    .padding(.vertical, 8)
-                    .padding(.horizontal, 16)
-                    .background(Color.orange)
-                    .foregroundColor(.white)
-                    .cornerRadius(20)
-                    .shadow(color: .orange.opacity(0.4), radius: 8)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    
-                    Spacer()
-                }
-                .padding(.top, 50)
-                .zIndex(10)
-            }
-            
             // VERIFICATION VOLUME UTILISATEUR
             if data.isMuted {
                 VStack(spacing: 10) {
@@ -134,13 +110,33 @@ struct ContentView: View {
                 }
                 .padding(.top, 50)
                 
-                Spacer()
+                Spacer() // Pousse le bouton vers le centre
                 
                 // --- BOUTON CENTRAL ---
                 MainButtonView(data: data) { self.clickAction() }
                 
-                Spacer()
+                Spacer() // Pousse la barre vers le bas
                 
+                // --- BANNIÈRE BONUS X2 (POSITIONNÉE ICI : JUSTE AU DESSUS DE LA BARRE) ---
+                if squadManager.isFullSquadOnline() {
+                    HStack(spacing: 8) {
+                        Image(systemName: "flame.fill")
+                        Text("BONUS ESCOUADE x2 ACTIVÉ !")
+                            .fontWeight(.black)
+                        Image(systemName: "flame.fill")
+                    }
+                    .font(.system(size: 10, design: .rounded))
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 14)
+                    .background(Color.orange)
+                    .foregroundColor(.white)
+                    .cornerRadius(20)
+                    .shadow(color: .orange.opacity(0.4), radius: 6)
+                    .padding(.bottom, 12) // Espace avant l'inventaire
+                    .transition(.asymmetric(insertion: .scale.combined(with: .opacity), removal: .opacity))
+                    .zIndex(1)
+                }
+
                 // --- INVENTAIRE RAPIDE ---
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 15) {
@@ -163,10 +159,7 @@ struct ContentView: View {
                     if data.isActeUnlocked(2) {
                         Button(action: { showingCombat = true }) {
                             ZStack {
-                                Circle()
-                                    .fill(data.isUnderAttack ? Color.red : Color.gray.opacity(0.5))
-                                    .frame(width: 55, height: 55)
-                                    .shadow(color: data.isUnderAttack ? .red.opacity(0.6) : .black.opacity(0.3), radius: 8)
+                                Circle().fill(data.isUnderAttack ? Color.red : Color.gray.opacity(0.5)).frame(width: 55, height: 55)
                                 Image(systemName: "toilet.fill").foregroundColor(.white).font(.title2)
                             }
                             .offset(y: -15)
@@ -200,7 +193,7 @@ struct ContentView: View {
             timerManager.startAutoFartTimer()
             poopManager.startFallingPoopTimer()
             
-            // Heartbeat haute fréquence (toutes les 10s) pour la bannière x2 et le statut
+            // Heartbeat haute fréquence (toutes les 10s) pour la bannière x2
             Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { _ in
                 if let userID = authManager.user?.uid {
                     squadManager.updateMyActivity(userID: userID)

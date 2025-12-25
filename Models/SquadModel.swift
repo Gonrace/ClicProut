@@ -5,7 +5,7 @@ struct Squad: Identifiable, Codable {
     var name: String
     var leaderID: String
     var members: [String: String]      // [UserID: Username]
-    var lastSeen: [String: Double]     // [UserID: Timestamp de dernière activité] <--- CRUCIAL
+    var lastSeen: [String: Double]     // [UserID: Timestamp de dernière activité]
     var lastActivity: TimeInterval     // Activité globale de l'escouade
     var activeSessions: [String: Bool]? // [UserID: true] si connecté
     

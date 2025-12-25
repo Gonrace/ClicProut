@@ -90,14 +90,20 @@ class SquadManager: ObservableObject {
     // --- 3. LOGIQUE DE PRÉSENCE (Le Bonus) ---
 
     func updateMyActivity(userID: String) {
-        guard let squadID = currentSquad?.id else { return }
+        guard let squadID = currentSquad?.id else {
+            print("❌ Impossible d'update : Aucun squadID trouvé")
+            return
+        }
         let now = Date().timeIntervalSince1970
         
-        // 1. Update mon timestamp perso
+        // 1. Met à jour le timestamp pour le point vert
         ref.child("squads").child(squadID).child("lastSeen").child(userID).setValue(now)
         
-        // 2. Update l'activité GLOBALE de l'escouade
-        // C'est cette valeur que l'on comparera au retour pour le gain offline
+        // 2. CRÉE LE DOSSIER activeSessions (C'est ça qui manque !)
+        // On met 'true' pour dire que cet ID est en ligne
+        ref.child("squads").child(squadID).child("activeSessions").child(userID).setValue(true)
+        
+        // 3. Met à jour l'activité globale pour les gains offline pro-rata
         ref.child("squads").child(squadID).child("lastActivity").setValue(now)
     }
 
@@ -110,6 +116,12 @@ class SquadManager: ObservableObject {
         return activityMap.contains { (userID, timestamp) in
             userID != myID && (now - timestamp) < threshold
         }
+    }
+    
+    func setOffline(userID: String) {
+        guard let squadID = currentSquad?.id else { return }
+        // On supprime l'entrée dans activeSessions quand le joueur quitte
+        ref.child("squads").child(squadID).child("activeSessions").child(userID).removeValue()
     }
 
     // Vérifie si UN membre précis est en ligne (pour le point vert/rouge de l'UI)
@@ -143,8 +155,14 @@ class SquadManager: ObservableObject {
     // Vérifier si TOUT LE MONDE est là (pour le x2)
     func isFullSquadOnline() -> Bool {
         guard let squad = currentSquad else { return false }
-        let onlineCount = squad.activeSessions?.count ?? 0
-        return onlineCount >= squad.members.count && onlineCount > 0
+        
+        let totalMembers = squad.members.count
+        let onlineMembers = squad.activeSessions?.count ?? 0
+        
+        // Debug pour voir dans Xcode pourquoi ça ne s'affiche pas :
+        print("Debug x2 : \(onlineMembers) en ligne sur \(totalMembers)")
+        
+        return onlineMembers >= totalMembers && totalMembers > 0
     }
 }
 
