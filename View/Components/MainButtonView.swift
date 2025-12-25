@@ -30,7 +30,6 @@ struct MainButtonView: View {
     // MARK: - LOGIQUE DYNAMIQUE (C'est ici que tu t'amuseras plus tard !)
     
     private var currentEmoji: String {
-        // C'est ici que tu pourras mettre : if data.currentSkin == .gold { return "👑" }
         return "💩"
     }
     

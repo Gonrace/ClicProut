@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseAuth
 
 // MARK: - COMPOSANTS D'AFFICHAGE
 struct StatRow: View {
@@ -23,6 +24,8 @@ struct StatRow: View {
 struct StatsView: View {
     @ObservedObject var data: GameData
     @ObservedObject var gameManager: GameManager
+    
+    @StateObject var authManager = AuthManager()
     
     @Environment(\.dismiss) var dismiss
     
@@ -113,9 +116,7 @@ struct StatsView: View {
                         .padding(.top, 10)
 
                         // --- SECTION 2 : PROFIL ---
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Profil").font(AppStyle.subTitleFont).foregroundColor(.white)
-                            
+                        VStack(spacing: 15) {
                             HStack {
                                 Image(systemName: "person.fill").foregroundColor(.gray)
                                 Text("Pseudo :").foregroundColor(.white)
@@ -128,14 +129,28 @@ struct StatsView: View {
                                     tempUsername = gameManager.username
                                     showingNameEditAlert = true
                                 } label: {
-                                    Image(systemName: "pencil.circle.fill")
-                                        .font(.title2)
-                                        .foregroundColor(.orange)
+                                    Image(systemName: "pencil.circle.fill").font(.title2).foregroundColor(.orange)
                                 }
                             }
-                            .padding()
-                            .background(AppStyle.listRowBackground)
-                            .cornerRadius(12)
+                            
+                            Divider().background(Color.white.opacity(0.1))
+                            
+                            if let user = authManager.user {
+                                HStack {
+                                    Image(systemName: "cloud.fill").foregroundColor(AppStyle.positiveColor)
+                                    VStack(alignment: .leading) {
+                                        Text("Compte Invité Actif").font(.footnote).foregroundColor(.white)
+                                        Text("ID : \(user.uid.prefix(10))...").font(.caption2).foregroundColor(.gray)
+                                    }
+                                    Spacer()
+                                    Text("Prêt pour Escouade ✅").font(.caption2).foregroundColor(AppStyle.positiveColor)
+                                }
+                            } else {
+                                Button("Se connecter au Cloud") {
+                                    authManager.signInAnonymously()
+                                }
+                                .foregroundColor(AppStyle.accentColor)
+                            }
                         }
                         
                         // --- SECTION 3 : ÉCONOMIE ---

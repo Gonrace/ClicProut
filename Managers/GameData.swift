@@ -7,7 +7,7 @@ import AudioToolbox
 
 // MARK: - STRUCTURES D'AIDE
 struct ActiveAttackInfo: Identifiable {
-    let id: String           // ex: atk_spray
+    let id: String
     let attackerName: String
     let weaponName: String
     let expiryDate: Date
@@ -23,31 +23,24 @@ struct ReceivedGiftInfo: Identifiable {
     let date: Date
 }
 
-// Note: GlobalConfig est maintenant géré par CloudConfigManager,
-// mais on garde la structure pour la compatibilité si besoin.
 struct GlobalConfig {
     var priceMultiplier: Double = 1.2
     var baseClickValue: Int = 1
 }
 
 class GameData: ObservableObject {
-    // Référence vers le manager de données Cloud
     var cloudManager: CloudConfigManager?
     
-    // MARK: - NOTIFICATION
     @Published var pendingNotification: GameNotification? = nil
     @Published var showNotificationOverlay: Bool = false
     
-    // MARK: - ÉCONOMIE (Local)
     @AppStorage("TotalFartCount") var totalFartCount: Int = 0
     @AppStorage("LifetimeFarts") var lifetimeFarts: Int = 0
     @AppStorage("GoldenToiletPaper") var goldenToiletPaper: Int = 0
     
-    // MARK: - ÉTAT DU JEU ET ECHANGE
     @Published var autoFarterUpdateCount: Int = 0
     @Published var activeAttacks: [String: ActiveAttackInfo] = [:]
     @Published var receivedGifts: [ReceivedGiftInfo] = []
-
     @Published var petAccumulator: Double = 0.0
     @Published var lastAttackerName: String = ""
     @Published var lastAttackWeapon: String = ""
@@ -60,18 +53,46 @@ class GameData: ObservableObject {
         }
     }
 
-    // MARK: - INITIALISATION
     init() {
         self.itemLevels = GameData.loadItemLevels()
         setupAudioSession()
-        
-        NotificationCenter.default.addObserver(
-            forName: NSNotification.Name("AVSystemController_SystemVolumeDidChangeNotification"),
-            object: nil, queue: .main
-        ) { [weak self] _ in self?.checkMuteStatus() }
+        NotificationCenter.default.addObserver(forName: NSNotification.Name("AVSystemController_SystemVolumeDidChangeNotification"), object: nil, queue: .main) { [weak self] _ in self?.checkMuteStatus() }
     }
 
-    // MARK: - LOGIQUE DE GAIN
+    // MARK: - MOTEUR DE CALCUL (Appel aux Engines)
+        
+    var soundMultiplier: Double { isMuted ? 0.1 : 1.0 }
+
+    var petsPerSecond: Double {
+        guard let items = cloudManager?.allItems else { return 0 }
+        // Appel au moteur pour la base
+        let basePPS = EconomyEngine.calculateBasePPS(items: items, levels: itemLevels)
+        // Appel au moteur pour le combat
+        let battleMults = CombatEngine.getActiveMultipliers(attacks: activeAttacks)
+        // Résultat final : Base * Combat * Son
+        return basePPS * battleMults.pps * soundMultiplier
+    }
+
+    var clickPower: Int {
+        guard let items = cloudManager?.allItems else { return 1 }
+        let baseValue = cloudManager?.config.baseClickValue ?? 1
+            
+        let basePPC = EconomyEngine.calculateBasePPC(items: items, levels: itemLevels, baseValue: baseValue)
+        let battleMults = CombatEngine.getActiveMultipliers(attacks: activeAttacks)
+            
+        return Int(basePPC * battleMults.ppc * soundMultiplier)
+    }
+
+    func isActeUnlocked(_ acte: Int) -> Bool {
+        guard let items = cloudManager?.allItems,
+                let actes = cloudManager?.actesInfo else { return acte == 1 }
+            
+        let threshold = actes[acte]?.threshold ?? 0.9
+        return CombatEngine.isActeUnlocked(acte: acte, items: items, levels: itemLevels, threshold: threshold)
+    }
+    
+    // MARK: - LOGIQUE DE JEU
+    
     func processProutClick() {
         checkMuteStatus()
         let produced = clickPower
@@ -85,125 +106,61 @@ class GameData: ObservableObject {
         DispatchQueue.main.async { self.isMuted = (volume < 0.1) }
     }
 
-    var soundMultiplier: Double { isMuted ? 0.1 : 1.0 }
-
-    var petsPerSecond: Double {
-        // CORRECTION : On pointe vers cloudManager.allItems
-        guard let items = cloudManager?.allItems else { return 0 }
-        var totalPPS: Double = 0
-        var globalMultiplier: Double = 1.0
-        
-        for item in items.filter({ $0.category == .production }) {
-            let count = itemLevels[item.name, default: 0]
-            if count > 0 {
-                var itemPPS = Double(count) * item.dpsRate
-                let upgrades = items.filter { $0.category == .amelioration && $0.requiredItem == item.name }
-                for upgrade in upgrades where itemLevels[upgrade.name, default: 0] > 0 {
-                    itemPPS *= upgrade.dpsRate
-                }
-                totalPPS += itemPPS
-            }
-        }
-        let now = Date()
-        for attack in activeAttacks.values where attack.expiryDate > now {
-            globalMultiplier *= attack.multPPS
-        }
-        return totalPPS * globalMultiplier * soundMultiplier
-    }
-
-    var clickPower: Int {
-        // CORRECTION : On pointe vers cloudManager.allItems et cloudManager.config
-        guard let items = cloudManager?.allItems else { return 1 }
-        let baseValue = cloudManager?.config.baseClickValue ?? 1
-        
-        var power: Double = Double(baseValue)
-        var globalAttackMultiplier: Double = 1.0
-        
-        for item in items.filter({ $0.category == .outil }) {
-            let count = itemLevels[item.name, default: 0]
-            power += Double(count * item.clickMultiplier)
-        }
-        let now = Date()
-        for attack in activeAttacks.values where attack.expiryDate > now {
-            globalAttackMultiplier *= attack.multPPC
-        }
-        return Int(power * globalAttackMultiplier * soundMultiplier)
-    }
-
     // MARK: - PROGRESSION
+    
     var currentActeProgress: Double {
-        guard let items = cloudManager?.allItems,
-              let actes = cloudManager?.actesInfo else { return 0 }
-        
-        let currentActe = actes.keys.filter { isActeUnlocked($0) }.max() ?? 1
-
-        let itemsInActe = items.filter {
-            $0.acte == currentActe && $0.category != .perturbateur && $0.category != .defense
-        }
+        guard let items = cloudManager?.allItems, let actes = cloudManager?.actesInfo else { return 0 }
+        let acteActuel = currentActe
+        let itemsInActe = items.filter { $0.acte == acteActuel && $0.category != .perturbateur && $0.category != .defense }
         if itemsInActe.isEmpty { return 0.0 }
         let ownedCount = itemsInActe.filter { itemLevels[$0.name, default: 0] > 0 }.count
         return Double(ownedCount) / Double(itemsInActe.count)
     }
     
+    var currentActe: Int {
+        guard let actes = cloudManager?.actesInfo else { return 1 }
+        return actes.keys.filter { isActeUnlocked($0) }.max() ?? 1
+    }
+
     var ownedItemsDisplay: [String] {
         guard let items = cloudManager?.allItems else { return [] }
         return items.filter { item in
             let level = itemLevels[item.name, default: 0]
             return level > 0 && (item.category == .production || item.category == .outil)
-        }.map { item in
+        }.map { item in // <-- On définit bien 'item' ici
             let level = itemLevels[item.name, default: 0]
             return "\(item.emoji) \(level)"
         }
     }
-    
-    func isActeUnlocked(_ acte: Int) -> Bool {
-        if acte == 1 { return true }
-        guard let items = cloudManager?.allItems,
-              let actes = cloudManager?.actesInfo else { return false }
-        
-        let itemsPrecedent = items.filter { $0.acte == acte - 1 && ($0.category == .production || $0.category == .outil) }
-        if itemsPrecedent.isEmpty { return false }
-        let owned = itemsPrecedent.filter { itemLevels[$0.name, default: 0] > 0 }
-        let threshold = actes[acte]?.threshold ?? 0.9
-        return Double(owned.count) / Double(itemsPrecedent.count) >= threshold
-    }
 
-    // MARK: - LOGIQUE DE DÉCOUVERTE
-    var isMechanceteUnlocked: Bool {
+    // MARK: - DÉCOUVERTES
+    var isMechanceteUnlocked: Bool { hasItemWithEffect("unlock_combat") }
+    var isGentillesseUnlocked: Bool { hasItemWithEffect("unlock_kado") }
+    var hasDiscoveredInteractions: Bool { isMechanceteUnlocked || isGentillesseUnlocked }
+
+    private func hasItemWithEffect(_ effect: String) -> Bool {
         guard let items = cloudManager?.allItems else { return false }
-        return itemLevels.keys.contains { itemName in
-            let itemData = items.first(where: { $0.name == itemName })
-            return itemData?.effectID == "unlock_combat" && itemLevels[itemName, default: 0] > 0
+        return itemLevels.keys.contains { name in
+            items.first(where: { $0.name == name })?.effectID == effect && itemLevels[name, default: 0] > 0
         }
     }
 
-    var isGentillesseUnlocked: Bool {
-        guard let items = cloudManager?.allItems else { return false }
-        return itemLevels.keys.contains { itemName in
-            let itemData = items.first(where: { $0.name == itemName })
-            return itemData?.effectID == "unlock_kado" && itemLevels[itemName, default: 0] > 0
-        }
-    }
-
-    var hasDiscoveredInteractions: Bool {
-        isMechanceteUnlocked || isGentillesseUnlocked
-    }
-
-
-    // MARK: - MOTEUR D'ACHAT
+    // MARK: - ACHATS
     func attemptPurchase(item: ShopItem) -> Bool {
         let level = itemLevels[item.name, default: 0]
         if item.isConsumable && level >= 1 { return false }
         
         let isSingleLevel = (item.category == .amelioration || item.category == .defense || item.category == .jalonNarratif || item.category == .kado)
+        if isSingleLevel && level > 0 { return false }
         
-        // CORRECTION : On utilise le prix du cloudManager
+        if let req = item.requiredItem, itemLevels[req, default: 0] < (item.requiredItemCount ?? 0) {
+            return false
+        }
+
+        // PRIX VIA ENGINE
         let multiplier = cloudManager?.config.priceMultiplier ?? 1.2
         let cost = (item.category == .production || item.category == .outil) ?
-            Int(Double(item.baseCost) * pow(multiplier, Double(level))) : item.baseCost
-            
-        if isSingleLevel && level > 0 { return false }
-        if let req = item.requiredItem, itemLevels[req, default: 0] < (item.requiredItemCount ?? 0) { return false }
+            EconomyEngine.calculateCost(baseCost: item.baseCost, level: level, multiplier: multiplier) : item.baseCost
         
         if item.currency == .pets {
             guard totalFartCount >= cost else { return false }
@@ -213,9 +170,7 @@ class GameData: ObservableObject {
             goldenToiletPaper -= cost
         }
         
-        if isSingleLevel { itemLevels[item.name] = 1 }
-        else { itemLevels[item.name, default: 0] += 1 }
-        
+        itemLevels[item.name, default: 0] += 1
         if item.category == .production { autoFarterUpdateCount += 1 }
         checkNotifications()
         return true
@@ -323,10 +278,6 @@ class GameData: ObservableObject {
     }
 
     // MARK: - SYSTEME DE NOTIFICATIONS DYNAMIQUES
-    var currentActe: Int {
-        guard let actes = cloudManager?.actesInfo else { return 1 }
-        return actes.keys.filter { isActeUnlocked($0) }.max() ?? 1
-    }
 
     func checkNotifications() {
         guard let cloud = cloudManager else { return }

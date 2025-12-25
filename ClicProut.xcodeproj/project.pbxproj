@@ -33,6 +33,10 @@
 		DA50FA772EF864F300B3D3C7 /* PoopEntityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA50FA762EF864EE00B3D3C7 /* PoopEntityManager.swift */; };
 		DA50FA792EF8715100B3D3C7 /* GameTimerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA50FA782EF8714B00B3D3C7 /* GameTimerManager.swift */; };
 		DA50FA8D2EF9F12D00B3D3C7 /* CloudConfigManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA50FA8C2EF9F12700B3D3C7 /* CloudConfigManager.swift */; };
+		DA50FAA92EFD51BD00B3D3C7 /* EconomyEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA50FAA82EFD51BA00B3D3C7 /* EconomyEngine.swift */; };
+		DA50FAAB2EFD521D00B3D3C7 /* CombatEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA50FAAA2EFD521900B3D3C7 /* CombatEngine.swift */; };
+		DA50FAAF2EFD630700B3D3C7 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA50FAAE2EFD630400B3D3C7 /* AuthManager.swift */; };
+		DA50FAB12EFD658300B3D3C7 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = DA50FAB02EFD658300B3D3C7 /* FirebaseAuth */; };
 		DABAA68A2EF0619E009CEAB4 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = DABAA6892EF0619E009CEAB4 /* FirebaseCore */; };
 		DABAA68C2EF0619E009CEAB4 /* FirebaseDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = DABAA68B2EF0619E009CEAB4 /* FirebaseDatabase */; };
 /* End PBXBuildFile section */
@@ -81,6 +85,9 @@
 		DA50FA762EF864EE00B3D3C7 /* PoopEntityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoopEntityManager.swift; sourceTree = "<group>"; };
 		DA50FA782EF8714B00B3D3C7 /* GameTimerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameTimerManager.swift; sourceTree = "<group>"; };
 		DA50FA8C2EF9F12700B3D3C7 /* CloudConfigManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudConfigManager.swift; sourceTree = "<group>"; };
+		DA50FAA82EFD51BA00B3D3C7 /* EconomyEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EconomyEngine.swift; sourceTree = "<group>"; };
+		DA50FAAA2EFD521900B3D3C7 /* CombatEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CombatEngine.swift; sourceTree = "<group>"; };
+		DA50FAAE2EFD630400B3D3C7 /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
 		DAE0EA282EEEF6A200A43D8A /* ClicProut.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClicProut.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAE0EA352EEEF6A500A43D8A /* ClicProutTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClicProutTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAE0EA3F2EEEF6A500A43D8A /* ClicProutUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClicProutUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -106,6 +113,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				DABAA68C2EF0619E009CEAB4 /* FirebaseDatabase in Frameworks */,
+				DA50FAB12EFD658300B3D3C7 /* FirebaseAuth in Frameworks */,
 				DABAA68A2EF0619E009CEAB4 /* FirebaseCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -150,6 +158,9 @@
 		DA50FA552EF85CB000B3D3C7 /* Managers */ = {
 			isa = PBXGroup;
 			children = (
+				DA50FAAE2EFD630400B3D3C7 /* AuthManager.swift */,
+				DA50FAAA2EFD521900B3D3C7 /* CombatEngine.swift */,
+				DA50FAA82EFD51BA00B3D3C7 /* EconomyEngine.swift */,
 				DA50FA8C2EF9F12700B3D3C7 /* CloudConfigManager.swift */,
 				DA50FA3D2EF8510300B3D3C7 /* SocialManager.swift */,
 				DA50FA782EF8714B00B3D3C7 /* GameTimerManager.swift */,
@@ -276,6 +287,7 @@
 			packageProductDependencies = (
 				DABAA6892EF0619E009CEAB4 /* FirebaseCore */,
 				DABAA68B2EF0619E009CEAB4 /* FirebaseDatabase */,
+				DA50FAB02EFD658300B3D3C7 /* FirebaseAuth */,
 			);
 			productName = BoutonProut;
 			productReference = DAE0EA282EEEF6A200A43D8A /* ClicProut.app */;
@@ -399,6 +411,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				DA50FA2B2EF8424500B3D3C7 /* InteractionModel.swift in Sources */,
+				DA50FAAF2EFD630700B3D3C7 /* AuthManager.swift in Sources */,
 				DA50FA752EF864A300B3D3C7 /* FallingPoop.swift in Sources */,
 				DA50FA3F2EF8510A00B3D3C7 /* SocialManager.swift in Sources */,
 				DA50FA2C2EF8424500B3D3C7 /* AudioEngine.swift in Sources */,
@@ -411,7 +424,9 @@
 				DA50FA322EF8424500B3D3C7 /* ShopModels.swift in Sources */,
 				DA50FA772EF864F300B3D3C7 /* PoopEntityManager.swift in Sources */,
 				DA50FA332EF8424500B3D3C7 /* StyleConstants.swift in Sources */,
+				DA50FAAB2EFD521D00B3D3C7 /* CombatEngine.swift in Sources */,
 				DA50FA342EF8424500B3D3C7 /* ContentView.swift in Sources */,
+				DA50FAA92EFD51BD00B3D3C7 /* EconomyEngine.swift in Sources */,
 				DA50FA352EF8424500B3D3C7 /* DebugView.swift in Sources */,
 				DA50FA362EF8424500B3D3C7 /* InteractionsView.swift in Sources */,
 				DA50FA8D2EF9F12D00B3D3C7 /* CloudConfigManager.swift in Sources */,
@@ -597,7 +612,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 3.4;
+				MARKETING_VERSION = 3.5;
 				PRODUCT_BUNDLE_IDENTIFIER = paulserra.ClicProut;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -630,7 +645,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 3.4;
+				MARKETING_VERSION = 3.5;
 				PRODUCT_BUNDLE_IDENTIFIER = paulserra.ClicProut;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -780,6 +795,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		DA50FAB02EFD658300B3D3C7 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DABAA6862EF05CB6009CEAB4 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
 		DABAA6892EF0619E009CEAB4 /* FirebaseCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = DABAA6862EF05CB6009CEAB4 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
