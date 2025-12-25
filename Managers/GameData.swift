@@ -46,6 +46,8 @@ class GameData: ObservableObject {
     @Published var lastAttackWeapon: String = ""
     @Published var isMuted: Bool = false
     
+    @Published var lastOfflineGain: Int = 0 // Montant gagné hors-ligne à afficher au retour
+    
     @Published var itemLevels: [String: Int] = [:] {
         didSet {
             GameData.saveItemLevels(itemLevels)
@@ -89,6 +91,16 @@ class GameData: ObservableObject {
             
         let threshold = actes[acte]?.threshold ?? 0.9
         return CombatEngine.isActeUnlocked(acte: acte, items: items, levels: itemLevels, threshold: threshold)
+    }
+    
+    
+    // MARK: - DEBLOQUER HUB SOCIAL
+    
+    // Dans GameData.swift
+    var hasUnlockedHub: Bool {
+        guard let allItems = cloudManager?.allItems else { return false }
+        let hubNames = allItems.filter { $0.effectID == "unlock_hub" }.map { $0.name }
+        return itemLevels.keys.contains { hubNames.contains($0) && itemLevels[$0, default: 0] > 0 }
     }
     
     // MARK: - LOGIQUE DE JEU
@@ -343,6 +355,30 @@ class GameData: ObservableObject {
         DispatchQueue.main.async {
             self.pendingNotification = notif
             self.showNotificationOverlay = true
+        }
+    }
+    
+    func applyOfflineGains(seconds: Double, squad: Squad?) {
+        let pps = self.petsPerSecond
+        let now = Date().timeIntervalSince1970
+        let lastExit = now - seconds
+        
+        var multiplier = 0.0
+        
+        if let squad = squad {
+            // On regarde quand l'escouade a été active pour la dernière fois
+            let squadLastActivity = squad.lastActivity
+            
+            if squadLastActivity > lastExit {
+                // Le temps couvert est la différence entre le dernier signe de vie de l'escouade
+                // et le moment où le joueur est parti.
+                let coveredSeconds = min(seconds, squadLastActivity - lastExit)
+                
+                // Gain = (Temps couvert * 100%) + (Reste du temps * 0%)
+                let totalGained = Int(pps * coveredSeconds)
+                self.totalFartCount += totalGained
+                self.lastOfflineGain = totalGained
+            }
         }
     }
 }

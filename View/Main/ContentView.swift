@@ -1,36 +1,46 @@
 import SwiftUI
 import UIKit
+import FirebaseAuth
 
 struct ContentView: View {
     
     // --- SOURCES DE VÉRITÉ ---
     @StateObject var cloudManager: CloudConfigManager
     @StateObject var data: GameData
-    @StateObject var audio = AudioEngine()
-    @StateObject var gameManager = GameManager()
+    @StateObject var audio: AudioEngine
+    @StateObject var gameManager: GameManager
     @StateObject var poopManager: PoopEntityManager
-    @StateObject var socialManager = SocialManager()
+    @StateObject var socialManager: SocialManager
     @StateObject var timerManager: GameTimerManager
+    @StateObject var authManager: AuthManager
+    @StateObject var squadManager: SquadManager
     
     // --- INITIALISATION DES MANAGERS RELIÉS ---
-        init() {
-            // 1. On crée les instances de base
-            let cloud = CloudConfigManager()
-            let d = GameData()
-            let p = PoopEntityManager()
+    init() {
+        let cloud = CloudConfigManager()
+        let d = GameData()
+        let p = PoopEntityManager()
+        let auth = AuthManager()
+        let squad = SquadManager()
             
-            // 2. On lie le cerveau (data) à ses données (cloud)
-            d.cloudManager = cloud
+        d.cloudManager = cloud
             
-            // 3. Injection dans les StateObjects
-            _cloudManager = StateObject(wrappedValue: cloud)
-            _data = StateObject(wrappedValue: d)
-            _poopManager = StateObject(wrappedValue: p)
+        let tm = GameTimerManager(data: d, poopManager: p)
+        tm.squadManager = squad
+        tm.authManager = auth
             
-            // 3. On crée le TimerManager en lui passant les deux autres
-            _timerManager = StateObject(wrappedValue: GameTimerManager(data: d, poopManager: p))
-        }
-    
+        _cloudManager = StateObject(wrappedValue: cloud)
+        _data = StateObject(wrappedValue: d)
+        _poopManager = StateObject(wrappedValue: p)
+        _authManager = StateObject(wrappedValue: auth)
+        _squadManager = StateObject(wrappedValue: squad)
+        _timerManager = StateObject(wrappedValue: tm)
+            
+        _audio = StateObject(wrappedValue: AudioEngine())
+        _gameManager = StateObject(wrappedValue: GameManager())
+        _socialManager = StateObject(wrappedValue: SocialManager())
+    }
+        
     // --- ETATS UI ---
     @State private var isPoopRainEnabled: Bool = true
     @State private var showingStats = false
@@ -39,6 +49,7 @@ struct ContentView: View {
     @State private var showingInventory = false
     @State private var showingShop = false
     @State private var showingDebug = false
+    @State private var showingSquadView = false
     
     let customBackground = Color(red: 0.1, green: 0.15, blue: 0.2)
     
@@ -47,8 +58,32 @@ struct ContentView: View {
             // FOND
             customBackground.edgesIgnoringSafeArea(.all)
             
-            // CALQUE DES PARTICULES (Pluie de caca)
+            // CALQUE DES PARTICULES
             PoopRainView(fallingPoops: poopManager.fallingPoops, isEnabled: isPoopRainEnabled)
+            
+            // --- BANNIÈRE BONUS X2 (Z-INDEX ÉLEVÉ) ---
+            if squadManager.isFullSquadOnline() {
+                VStack {
+                    HStack(spacing: 10) {
+                        Image(systemName: "flame.fill")
+                        Text("BONUS ESCOUADE x2 ACTIVÉ !")
+                            .fontWeight(.black)
+                        Image(systemName: "flame.fill")
+                    }
+                    .font(.system(size: 12, design: .rounded))
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 16)
+                    .background(Color.orange)
+                    .foregroundColor(.white)
+                    .cornerRadius(20)
+                    .shadow(color: .orange.opacity(0.4), radius: 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    
+                    Spacer()
+                }
+                .padding(.top, 50)
+                .zIndex(10)
+            }
             
             // VERIFICATION VOLUME UTILISATEUR
             if data.isMuted {
@@ -60,19 +95,15 @@ struct ContentView: View {
                     VolumeObserver().frame(width: 0, height: 0)
                     
                     Text("C'est moins drôle sans le son...")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
-                        .padding(8)
-                        .background(Color.orange.opacity(0.8))
-                        .cornerRadius(8)
+                        .font(.caption).fontWeight(.bold).foregroundColor(.white)
+                        .padding(8).background(Color.orange.opacity(0.8)).cornerRadius(8)
                 }
                 .position(x: UIScreen.main.bounds.width / 2, y: UIScreen.main.bounds.height * 0.3)
                 .transition(.scale)
             }
             
             VStack(spacing: 0) {
-                // --- EN-TÊTE : SCORE & ALERTE ---
+                // --- EN-TÊTE : SCORE ---
                 VStack(spacing: 5) {
                     Text("\(data.totalFartCount)")
                         .font(.system(size: 60, weight: .heavy, design: .rounded))
@@ -80,37 +111,25 @@ struct ContentView: View {
                         .animation(.spring(), value: data.totalFartCount)
                     
                     Text("PPS: \(String(format: "%.2f", data.petsPerSecond)) | PPC: \(data.clickPower)")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundColor(.gray)
+                        .font(.caption).fontWeight(.bold).foregroundColor(.gray)
                     
                     Text("PQ d'Or: \(data.goldenToiletPaper) 👑")
-                        .font(.caption)
-                        .fontWeight(.bold)
-                        .foregroundColor(.yellow)
+                        .font(.caption).fontWeight(.bold).foregroundColor(.yellow)
                     
                     if data.isUnderAttack && data.isActeUnlocked(2) {
                         Button(action: { showingCombat = true }) {
                             HStack(spacing: 10) {
-                                Image(systemName: "bolt.shield.fill")
-                                    .font(.title3)
-                                
+                                Image(systemName: "bolt.shield.fill").font(.title3)
                                 VStack(alignment: .leading) {
-                                    Text("ATTAQUE DE \(data.lastAttackerName.uppercased()) !")
-                                        .font(.caption).fontWeight(.black)
-                                    Text("Touché par : \(data.lastAttackWeapon)")
-                                        .font(.system(size: 10))
+                                    Text("ATTAQUE DE \(data.lastAttackerName.uppercased()) !").font(.caption).fontWeight(.black)
+                                    Text("Touché par : \(data.lastAttackWeapon)").font(.system(size: 10))
                                 }
                             }
-                            .padding(.vertical, 8)
-                            .padding(.horizontal, 15)
-                            .background(Color.red.opacity(0.9))
-                            .foregroundColor(.white)
-                            .cornerRadius(12)
+                            .padding(.vertical, 8).padding(.horizontal, 15)
+                            .background(Color.red.opacity(0.9)).foregroundColor(.white).cornerRadius(12)
                             .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.white.opacity(0.6), lineWidth: 1))
                         }
-                        .padding(.top, 10)
-                        .shadow(radius: 5)
+                        .padding(.top, 10).shadow(radius: 5)
                     }
                 }
                 .padding(.top, 50)
@@ -118,9 +137,7 @@ struct ContentView: View {
                 Spacer()
                 
                 // --- BOUTON CENTRAL ---
-                MainButtonView(data: data) {
-                    self.clickAction()
-                }
+                MainButtonView(data: data) { self.clickAction() }
                 
                 Spacer()
                 
@@ -136,8 +153,7 @@ struct ContentView: View {
                     }
                     .padding(.horizontal, 20)
                 }
-                .frame(height: 50)
-                .padding(.bottom, 10)
+                .frame(height: 50).padding(.bottom, 10)
                 
                 // --- BARRE DE NAVIGATION ---
                 HStack(spacing: 0) {
@@ -151,87 +167,85 @@ struct ContentView: View {
                                     .fill(data.isUnderAttack ? Color.red : Color.gray.opacity(0.5))
                                     .frame(width: 55, height: 55)
                                     .shadow(color: data.isUnderAttack ? .red.opacity(0.6) : .black.opacity(0.3), radius: 8)
-                                Image(systemName: "toilet.fill")
-                                    .foregroundColor(.white)
-                                    .font(.title2)
+                                Image(systemName: "toilet.fill").foregroundColor(.white).font(.title2)
                             }
                             .offset(y: -15)
                         }
                         .frame(maxWidth: .infinity)
                     } else {
                         VStack {
-                            Image(systemName: "lock.fill")
-                                .foregroundColor(.gray.opacity(0.5))
-                                .font(.caption)
+                            Image(systemName: "lock.fill").foregroundColor(.gray.opacity(0.5)).font(.caption)
                             Text("Acte 2").font(.system(size: 8)).foregroundColor(.gray)
                         }
-                        .frame(maxWidth: .infinity)
-                        .offset(y: -5)
+                        .frame(maxWidth: .infinity).offset(y: -5)
                     }
                     
                     NavButton(icon: "person.text.rectangle", action: { showingInventory = true }, color: .teal)
                     NavButton(icon: "bag.fill", action: { showingShop = true }, color: .blue)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 8)
-                .background(Color.black.opacity(0.4))
-                .cornerRadius(20)
-                .padding(.horizontal, 15)
-                .padding(.bottom, 20)
+                .frame(maxWidth: .infinity).padding(.horizontal, 10).padding(.vertical, 8)
+                .background(Color.black.opacity(0.4)).cornerRadius(20).padding(.horizontal, 15).padding(.bottom, 20)
             }
             
             NotificationOverlay(data: data)
         }
         .onAppear {
-            // Pour récuperer et remplir les items
             cloudManager.startFirebaseSync {
+                if let user = authManager.user {
+                    squadManager.observeUserSquad(user: user)
+                }
                 data.checkNotifications()
             }
-            // Le TimerManager s'occupe maintenant de l'auto-fart et de la pluie auto
+            
             timerManager.startAutoFartTimer()
-                    
-            // Le PoopManager s'occupe de faire descendre les cacas
             poopManager.startFallingPoopTimer()
-                    
+            
+            // Heartbeat haute fréquence (toutes les 10s) pour la bannière x2 et le statut
+            Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { _ in
+                if let userID = authManager.user?.uid {
+                    squadManager.updateMyActivity(userID: userID)
+                }
+            }
+            
             socialManager.startObservingInteractions(gameData: data)
             gameManager.startObservingLeaderboard()
         }
         .onDisappear {
-                // On arrête proprement le moteur de temps
             timerManager.stopTimer()
         }
-        .sheet(isPresented: $showingStats) { StatsView(data: data, gameManager: gameManager).interactiveDismissDisabled(true) }
-        .sheet(isPresented: $showingLeaderboard) { LeaderboardView(gameManager: gameManager, data: data, socialManager: socialManager) .interactiveDismissDisabled(true)}
-        .sheet(isPresented: $showingCombat) {InteractionsView(data: data, gameManager: gameManager, socialManager: socialManager).interactiveDismissDisabled(true)}
+        .sheet(isPresented: $showingLeaderboard) { LeaderboardView(gameManager: gameManager, data: data, socialManager: socialManager).interactiveDismissDisabled(true) }
+        .sheet(isPresented: $showingCombat) { InteractionsView(data: data, gameManager: gameManager, socialManager: socialManager).interactiveDismissDisabled(true) }
         .sheet(isPresented: $showingInventory) { InventoryView(data: data).interactiveDismissDisabled(true) }
         .sheet(isPresented: $showingShop) { ShopView(data: data).interactiveDismissDisabled(true) }
         .sheet(isPresented: $showingDebug) { DebugView(data: data).interactiveDismissDisabled(true) }
+        .sheet(isPresented: $showingStats) { StatsView(data: data, gameManager: gameManager, squadManager: squadManager, authManager: authManager).interactiveDismissDisabled(true) }
+        .alert("Bon retour !", isPresented: Binding(
+            get: { data.lastOfflineGain > 0 },
+            set: { _ in data.lastOfflineGain = 0 }
+        )) {
+            Button("Merci les gars ! 💨") { }
+        } message: {
+            Text("Tes alliés ont maintenu la production ! Tu as récolté \(data.lastOfflineGain) pets pendant ton absence.")
+        }
     }
     
-    // --- LOGIQUE ENGINE ---
     func clickAction() {
         data.processProutClick()
         gameManager.saveLifetimeScore(lifetimeScore: data.lifetimeFarts)
         audio.triggerFart(isAuto: false)
         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         data.checkNotifications()
-        // Ajout : Pluie au clic manuel si tu veux
         poopManager.generatePoopRain(count: 1)
     }
 }
 
-// --- STRUCTURE NAV ---
 struct NavButton: View {
     let icon: String
     let action: () -> Void
     let color: Color
     var body: some View {
         Button(action: action) {
-            Image(systemName: icon)
-                .font(.title3)
-                .frame(maxWidth: .infinity)
-                .foregroundColor(color)
+            Image(systemName: icon).font(.title3).frame(maxWidth: .infinity).foregroundColor(color)
         }
     }
 }

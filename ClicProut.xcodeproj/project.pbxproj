@@ -37,6 +37,9 @@
 		DA50FAAB2EFD521D00B3D3C7 /* CombatEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA50FAAA2EFD521900B3D3C7 /* CombatEngine.swift */; };
 		DA50FAAF2EFD630700B3D3C7 /* AuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA50FAAE2EFD630400B3D3C7 /* AuthManager.swift */; };
 		DA50FAB12EFD658300B3D3C7 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = DA50FAB02EFD658300B3D3C7 /* FirebaseAuth */; };
+		DA50FAB32EFD69EF00B3D3C7 /* SquadModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA50FAB22EFD69E800B3D3C7 /* SquadModel.swift */; };
+		DA50FAB52EFD6A0B00B3D3C7 /* SquadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA50FAB42EFD69FF00B3D3C7 /* SquadManager.swift */; };
+		DA50FAB72EFD85C200B3D3C7 /* SquadView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA50FAB62EFD857600B3D3C7 /* SquadView.swift */; };
 		DABAA68A2EF0619E009CEAB4 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = DABAA6892EF0619E009CEAB4 /* FirebaseCore */; };
 		DABAA68C2EF0619E009CEAB4 /* FirebaseDatabase in Frameworks */ = {isa = PBXBuildFile; productRef = DABAA68B2EF0619E009CEAB4 /* FirebaseDatabase */; };
 /* End PBXBuildFile section */
@@ -88,6 +91,9 @@
 		DA50FAA82EFD51BA00B3D3C7 /* EconomyEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EconomyEngine.swift; sourceTree = "<group>"; };
 		DA50FAAA2EFD521900B3D3C7 /* CombatEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CombatEngine.swift; sourceTree = "<group>"; };
 		DA50FAAE2EFD630400B3D3C7 /* AuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthManager.swift; sourceTree = "<group>"; };
+		DA50FAB22EFD69E800B3D3C7 /* SquadModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SquadModel.swift; sourceTree = "<group>"; };
+		DA50FAB42EFD69FF00B3D3C7 /* SquadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SquadManager.swift; sourceTree = "<group>"; };
+		DA50FAB62EFD857600B3D3C7 /* SquadView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SquadView.swift; sourceTree = "<group>"; };
 		DAE0EA282EEEF6A200A43D8A /* ClicProut.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClicProut.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAE0EA352EEEF6A500A43D8A /* ClicProutTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClicProutTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAE0EA3F2EEEF6A500A43D8A /* ClicProutUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClicProutUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -147,6 +153,7 @@
 		DA50FA542EF85C9800B3D3C7 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				DA50FAB22EFD69E800B3D3C7 /* SquadModel.swift */,
 				DA50FA742EF864A000B3D3C7 /* FallingPoop.swift */,
 				DA50FA172EF8424500B3D3C7 /* GameNotification.swift */,
 				DA50FA132EF8424500B3D3C7 /* InteractionModel.swift */,
@@ -158,6 +165,7 @@
 		DA50FA552EF85CB000B3D3C7 /* Managers */ = {
 			isa = PBXGroup;
 			children = (
+				DA50FAB42EFD69FF00B3D3C7 /* SquadManager.swift */,
 				DA50FAAE2EFD630400B3D3C7 /* AuthManager.swift */,
 				DA50FAAA2EFD521900B3D3C7 /* CombatEngine.swift */,
 				DA50FAA82EFD51BA00B3D3C7 /* EconomyEngine.swift */,
@@ -195,6 +203,7 @@
 		DA50FA582EF85D0F00B3D3C7 /* Menus */ = {
 			isa = PBXGroup;
 			children = (
+				DA50FAB62EFD857600B3D3C7 /* SquadView.swift */,
 				DA50FA262EF8424500B3D3C7 /* StatsView.swift */,
 				DA50FA232EF8424500B3D3C7 /* LeaderboardView.swift */,
 				DA50FA212EF8424500B3D3C7 /* InteractionsView.swift */,
@@ -424,6 +433,7 @@
 				DA50FA322EF8424500B3D3C7 /* ShopModels.swift in Sources */,
 				DA50FA772EF864F300B3D3C7 /* PoopEntityManager.swift in Sources */,
 				DA50FA332EF8424500B3D3C7 /* StyleConstants.swift in Sources */,
+				DA50FAB72EFD85C200B3D3C7 /* SquadView.swift in Sources */,
 				DA50FAAB2EFD521D00B3D3C7 /* CombatEngine.swift in Sources */,
 				DA50FA342EF8424500B3D3C7 /* ContentView.swift in Sources */,
 				DA50FAA92EFD51BD00B3D3C7 /* EconomyEngine.swift in Sources */,
@@ -431,6 +441,8 @@
 				DA50FA362EF8424500B3D3C7 /* InteractionsView.swift in Sources */,
 				DA50FA8D2EF9F12D00B3D3C7 /* CloudConfigManager.swift in Sources */,
 				DA50FA372EF8424500B3D3C7 /* InventoryView.swift in Sources */,
+				DA50FAB32EFD69EF00B3D3C7 /* SquadModel.swift in Sources */,
+				DA50FAB52EFD6A0B00B3D3C7 /* SquadManager.swift in Sources */,
 				DA50FA382EF8424500B3D3C7 /* LeaderboardView.swift in Sources */,
 				DA50FA392EF8424500B3D3C7 /* NotificationOverlay.swift in Sources */,
 				DA50FA3A2EF8424500B3D3C7 /* ShopView.swift in Sources */,
@@ -612,7 +624,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 3.5;
+				MARKETING_VERSION = 3.6;
 				PRODUCT_BUNDLE_IDENTIFIER = paulserra.ClicProut;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -645,7 +657,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 3.5;
+				MARKETING_VERSION = 3.6;
 				PRODUCT_BUNDLE_IDENTIFIER = paulserra.ClicProut;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
